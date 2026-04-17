@@ -88,15 +88,7 @@
             { id: 1, username: "Darius Damman", text: "Hallo zusammen! Wir freuen uns über euer Feedback und eure Verbesserungsvorschläge.", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), likes: [], moderationStatus: 'approved' }
         ];
 
-        // --- OLLAMA AI KONFIGURATION (Inaktiv, aber für Admin-Dashboard behalten) ---
-        let ollamaUrl = "http://localhost:11434";
-        let ollamaModelLoggedIn = "gemma4:e4b";
-        let ollamaModelGuest = "gemma4:e2b-it-q4_K_M";
         let currentUserAiPreference = "Think";
-        let ollamaSystemPrompt = `Du bist der Support.`;
-        let ollamaModerationEnabled = true;
-        let ollamaModerationModel = "gemma4:e2b-it-q4_K_M"; 
-        let ollamaModerationPrompt = `Du bist ein strenger Content-Moderator. Antworte AUSSCHLIESSLICH mit 'JA' oder 'NEIN'.\n\nZu prüfender Text: `;
 
         let view = 'home';
         let articles = JSON.parse(JSON.stringify(initialArticles));
@@ -1556,14 +1548,6 @@
 
                     ` : adminTab === 'support' && hasAdminAccess() ? `
                         
-                        ${isSuperAdmin ? `
-                            <div class="bg-gray-50 border border-gray-200 p-4 rounded mb-6 flex flex-col gap-4 shadow-sm">
-                                <div class="w-full text-gray-500 italic text-sm text-center">
-                                    KI Funktionen (Ollama) sind in dieser Version deaktiviert.
-                                </div>
-                            </div>
-                        ` : ''}
-
                         <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="help-circle" class="text-blue-600"></i> Support-Anfragen</h3>
                         
                         <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[600px] min-h-[500px]">
@@ -2370,32 +2354,6 @@
             }
         }
 
-        window.saveOllamaSettings = function() {
-            const urlInput = document.getElementById('adminOllamaUrl');
-            const modelInInput = document.getElementById('adminOllamaModelLoggedIn');
-            const modelGuestInput = document.getElementById('adminOllamaModelGuest');
-            const promptInput = document.getElementById('adminOllamaPrompt');
-            
-            const modEnabled = document.getElementById('adminModEnabled');
-            const modModel = document.getElementById('adminOllamaModModel');
-            const modPrompt = document.getElementById('adminOllamaModPrompt');
-
-            if (urlInput) {
-                ollamaUrl = urlInput.value.trim();
-                ollamaModelLoggedIn = modelInInput.value.trim();
-                ollamaModelGuest = modelGuestInput.value.trim();
-                ollamaSystemPrompt = promptInput.value.trim();
-                
-                if(modEnabled) ollamaModerationEnabled = modEnabled.checked;
-                if(modModel) ollamaModerationModel = modModel.value.trim();
-                if(modPrompt) ollamaModerationPrompt = modPrompt.value.trim();
-
-                window.saveState();
-                showModal('Gespeichert', 'Die Einstellungen wurden erfolgreich aktualisiert.');
-                renderApp();
-            }
-        }
-
         window.toggleChatAi = function(chatId) {
             let chat = supportChats.find(c => c.id === chatId);
             if (chat) {
@@ -2466,10 +2424,24 @@
                 const WORKER_URL = "https://askai.mikestaub705.workers.dev/";
                 
                 try {
+                    // --- KI-KONTEXT GENERIEREN ---
+                    // Wir geben der KI unsichtbar mit, wer gerade angemeldet ist und auf welcher Seite er sich befindet.
+                    const userStatus = currentUser ? `eingeloggt als '${currentUser}' (Rolle: ${getCurrentUserRole()})` : "ein Gast (nicht eingeloggt)";
+                    const contextPrefix = `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'. Antworte hilfreich auf Basis dieser Informationen.]\nNutzerfrage: `;
+                    
                     const res = await fetch(WORKER_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ message: text })
+                        body: JSON.stringify({ 
+                            message: contextPrefix + text,
+                            // Zusätzliche Fallback-Felder, falls das Backend sie verarbeiten möchte
+                            userInfo: {
+                                isLoggedIn: !!currentUser,
+                                username: currentUser || 'Gast',
+                                role: getCurrentUserRole(),
+                                currentView: view
+                            }
+                        })
                     });
                     const data = await res.json();
                     
@@ -3201,13 +3173,6 @@
 
         window.exportBackup = function() {
             const backupData = {
-                ollamaUrl: ollamaUrl, 
-                ollamaModelLoggedIn: ollamaModelLoggedIn,
-                ollamaModelGuest: ollamaModelGuest,
-                ollamaSystemPrompt: ollamaSystemPrompt,
-                ollamaModerationEnabled: ollamaModerationEnabled,
-                ollamaModerationModel: ollamaModerationModel,
-                ollamaModerationPrompt: ollamaModerationPrompt,
                 articles: articles,
                 authors: authors,
                 categories: categories,
@@ -3237,16 +3202,6 @@
                 try {
                     const importedData = JSON.parse(e.target.result);
                     if (importedData.articles && importedData.registeredUsers) {
-                        ollamaUrl = importedData.ollamaUrl || "http://localhost:11434";
-                        
-                        ollamaModelLoggedIn = importedData.ollamaModelLoggedIn || importedData.ollamaModel || "gemma3:4b";
-                        ollamaModelGuest = importedData.ollamaModelGuest || "gemma3:1b";
-                        ollamaSystemPrompt = importedData.ollamaSystemPrompt || "Du bist der freundliche AI-Support-Assistent der Winterthur Times. Antworte hilfreich, kurz und professionell auf Deutsch auf Fragen der Nutzer. Die Plattform ist eine moderne Demo-Zeitung.";
-                        
-                        ollamaModerationEnabled = importedData.ollamaModerationEnabled !== undefined ? importedData.ollamaModerationEnabled : true;
-                        ollamaModerationModel = importedData.ollamaModerationModel || "gemma3:1b";
-                        ollamaModerationPrompt = importedData.ollamaModerationPrompt || "Du bist ein strenger, aber fairer Content-Moderator für eine Schweizer Online-Zeitung. Deine einzige Aufgabe ist es, zu entscheiden, ob ein Nutzer-Kommentar veröffentlicht werden darf.\nRegeln: Blockiere Beleidigungen, Hassrede, extremen Spam und rechtswidrige Inhalte.\nAntworte AUSSCHLIESSLICH mit dem Wort 'JA' (wenn der Text okay ist) oder dem Wort 'NEIN' (wenn der Text blockiert werden soll). Gib keine Erklärungen ab.\n\nZu prüfender Text: ";
-
                         articles = importedData.articles;
                         authors = importedData.authors || [];
                         categories = importedData.categories || ["Politik", "Wirtschaft", "Gesellschaft", "Kultur", "Sport"];
