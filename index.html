@@ -1764,37 +1764,108 @@
             
             const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
             let userChat = supportChats.find(c => c.userId === activeChatUser);
-            let messagesHtml = '';
             
-            if (userChat) {
-                messagesHtml = userChat.messages.map(m => `
-                    <div class="mb-2 ${m.sender === 'user' ? 'text-right' : 'text-left'}">
-                        <span class="inline-block px-3 py-1.5 rounded text-sm ${m.sender === 'user' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-300 text-black shadow-sm'}">
-                            ${m.text}
-                        </span>
+            if (!userChat) {
+                userChat = { id: 'temp', messages: [], aiEnabled: true };
+            }
+
+            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support oder der KI.</p>';
+            
+            if (userChat && userChat.messages && userChat.messages.length > 0) {
+                messagesHtml = userChat.messages.map((m, index) => {
+                    const isUser = m.sender === 'user';
+                    const isAi = m.sender === 'ai';
+                    const isAdmin = m.sender === 'admin';
+                    
+                    let bgClass = isUser ? 'bg-blue-600 text-white' : (isAdmin ? 'bg-green-600 text-white' : 'bg-white border border-gray-300 text-gray-800');
+                    let alignClass = isUser ? 'justify-end' : 'justify-start';
+                    let roundedClass = isUser ? 'rounded-br-none' : 'rounded-bl-none';
+                    let senderLabel = isAdmin ? 'Admin' : (isAi ? 'KI-Assistent' : '');
+                    
+                    return `
+                    <div class="flex ${alignClass} mb-3 group">
+                        <div class="max-w-[85%]">
+                            ${!isUser ? `<div class="text-[10px] text-gray-400 ml-1 mb-0.5 font-bold uppercase">${senderLabel}</div>` : ''}
+                            <div class="p-3 rounded-lg ${bgClass} shadow-sm ${roundedClass} text-sm">
+                                ${m.text.replace(/\n/g, '<br/>')}
+                                ${m.isThinking ? '<span class="inline-flex space-x-1 ml-2"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span></span>' : ''}
+                            </div>
+                            <div class="flex items-center mt-1 gap-2 ${isUser ? 'justify-end' : 'justify-start'}">
+                                <span class="text-[9px] text-gray-400">${new Date(m.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</span>
+                                ${isAi && !m.isThinking ? `
+                                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'up')" class="text-gray-400 hover:text-green-500 ${m.rating === 'up' ? 'text-green-500' : ''}"><i data-lucide="thumbs-up" class="w-3 h-3"></i></button>
+                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'down')" class="text-gray-400 hover:text-red-500 ${m.rating === 'down' ? 'text-red-500' : ''}"><i data-lucide="thumbs-down" class="w-3 h-3"></i></button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
                     </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             return `
-            <!-- Support-Button unten rechts -->
-            <div id="support-button" onclick="toggleSupportChat()" class="fixed bottom-6 right-6 bg-blue-900 text-white px-6 py-3 rounded-full shadow-2xl cursor-pointer font-bold z-50 hover:bg-blue-800 transition-colors">
-                Support
-            </div>
+            <!-- Support Button Widget -->
+            <button onclick="toggleSupportChat()" class="fixed bottom-6 right-6 bg-blue-900 text-white p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-transform hover:scale-110 z-50 flex items-center justify-center cursor-pointer group">
+                <i data-lucide="message-square" class="w-6 h-6"></i>
+                ${(!isSupportChatOpen && userChat && userChat.messages.length > 0 && userChat.messages[userChat.messages.length-1].sender !== 'user') ? '<span class="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>' : ''}
+            </button>
 
-            <!-- Chat-Fenster -->
-            <div id="support-chat" class="${isSupportChatOpen ? 'fixed' : 'hidden'} bottom-20 right-6 w-[calc(100vw-2rem)] sm:w-80 bg-white border border-gray-300 rounded shadow-2xl z-50 flex flex-col h-96 font-sans overflow-hidden">
-              <div id="support-header" class="bg-blue-900 text-white p-3 font-bold flex justify-between items-center">
-                Support-Chat
-                <span id="support-close" onclick="toggleSupportChat()" class="cursor-pointer hover:text-gray-300 px-2 font-black">X</span>
-              </div>
-              <div id="support-messages" class="flex-1 p-3 overflow-y-auto bg-gray-50">
-                ${messagesHtml}
-              </div>
-              <div id="support-input-row" class="p-2 bg-white border-t border-gray-300 flex gap-2">
-                <input id="support-input" type="text" placeholder="Deine Frage..." class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') sendSupportMessage()" />
-                <button id="support-send" onclick="sendSupportMessage()" class="bg-blue-900 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-800 transition-colors">Senden</button>
-              </div>
+            <!-- Chat Window -->
+            <div id="support-chat" class="${isSupportChatOpen ? 'flex' : 'hidden'} fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-96 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 flex-col h-[500px] max-h-[70vh] font-sans overflow-hidden">
+                <!-- Header -->
+                <div class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-md z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-white/20 p-2 rounded-full shrink-0">
+                            <i data-lucide="headset" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold leading-none mb-1 text-sm">Winterthur Times</h3>
+                            <div class="flex items-center gap-2 text-xs text-blue-200">
+                                <span class="flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full ${userChat.aiEnabled ? 'bg-green-400' : 'bg-gray-400'}"></span>
+                                    ${userChat.aiEnabled ? 'KI aktiv' : 'Live Support'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button onclick="toggleChatAi(${userChat.id})" class="text-blue-200 hover:text-white p-1" title="${userChat.aiEnabled ? 'KI deaktivieren' : 'KI aktivieren'}">
+                            <i data-lucide="${userChat.aiEnabled ? 'bot' : 'user'}" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Messages -->
+                <div id="support-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col scroll-smooth">
+                    ${messagesHtml}
+                </div>
+
+                <!-- Input Area -->
+                <div class="bg-white border-t border-gray-200 p-3 flex flex-col gap-2 z-10">
+                    ${userChat.aiEnabled ? `
+                        <div class="flex items-center gap-2 px-1 mb-1">
+                            <span class="text-[10px] font-bold text-gray-500 uppercase">Modus:</span>
+                            <select onchange="setUserAiPreference(this.value)" class="text-[10px] border border-gray-200 rounded bg-gray-50 px-1 py-0.5 outline-none cursor-pointer">
+                                <option value="Think" ${currentUserAiPreference === 'Think' ? 'selected' : ''}>Erklären & Nachdenken</option>
+                                <option value="Response" ${currentUserAiPreference === 'Response' ? 'selected' : ''}>Direkte Antwort</option>
+                            </select>
+                        </div>
+                    ` : ''}
+                    <div class="flex gap-2 items-end">
+                        <textarea id="support-input" rows="1" placeholder="Schreibe eine Nachricht..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none max-h-24 overflow-y-auto bg-gray-50 focus:bg-white transition-colors" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportMessage(); }"></textarea>
+                        <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer shrink-0">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="text-[9px] text-center text-gray-400 mt-1">
+                        ${userChat.aiEnabled ? 'KI kann Fehler machen. Überprüfe wichtige Informationen.' : 'Wir antworten so schnell wie möglich.'}
+                    </div>
+                </div>
             </div>
             `;
         }
@@ -2359,7 +2430,7 @@
             
             let chat = supportChats.find(c => c.userId === activeChatUser);
             if(!chat) {
-                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: false };
+                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: true };
                 supportChats.push(chat);
             }
             
@@ -2369,15 +2440,41 @@
                 timestamp: new Date().toISOString()
             });
             
+            input.value = '';
             window.saveState();
             renderApp();
             
-            setTimeout(() => {
-                const container = document.getElementById('support-messages');
-                if(container) container.scrollTop = container.scrollHeight;
-                const inputRef = document.getElementById('support-input');
-                if(inputRef) inputRef.focus();
-            }, 50);
+            const scrollDown = () => {
+                setTimeout(() => {
+                    const container = document.getElementById('support-messages');
+                    if(container) container.scrollTop = container.scrollHeight;
+                }, 50);
+            };
+            scrollDown();
+
+            if (chat.aiEnabled) {
+                const msgIndex = chat.messages.length;
+                chat.messages.push({
+                    sender: 'ai',
+                    text: '...',
+                    isThinking: true,
+                    timestamp: new Date().toISOString()
+                });
+                renderApp();
+                scrollDown();
+
+                setTimeout(() => {
+                    if (chat.messages[msgIndex]) {
+                        chat.messages[msgIndex].isThinking = false;
+                        chat.messages[msgIndex].text = currentUserAiPreference === 'Think' 
+                            ? "Das ist eine simulierte KI-Antwort, da die echte lokale KI derzeit nicht verbunden ist. Wenn du konkrete Fragen zur Webseite hast, leite ich das gerne an einen Admin weiter!" 
+                            : "Simulierte Antwort. (Lokale KI offline).";
+                        window.saveState();
+                        renderApp();
+                        scrollDown();
+                    }
+                }, 1500);
+            }
         }
 
         window.adminReplySupportMessage = function(chatId) {
