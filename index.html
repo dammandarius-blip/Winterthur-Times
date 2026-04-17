@@ -2429,18 +2429,15 @@
                     const userStatus = currentUser ? `eingeloggt als '${currentUser}' (Rolle: ${getCurrentUserRole()})` : "ein Gast (nicht eingeloggt)";
                     const contextPrefix = `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'. Antworte hilfreich auf Basis dieser Informationen.]\nNutzerfrage: `;
                     
+                    // Wir setzen die Variable, damit deine gewünschte Abfrage funktioniert
+                    window.isLoggedIn = !!currentUser;
+
                     const res = await fetch(WORKER_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ 
                             message: contextPrefix + text,
-                            // Zusätzliche Fallback-Felder, falls das Backend sie verarbeiten möchte
-                            userInfo: {
-                                isLoggedIn: !!currentUser,
-                                username: currentUser || 'Gast',
-                                role: getCurrentUserRole(),
-                                currentView: view
-                            }
+                            loggedIn: window.isLoggedIn === true
                         })
                     });
                     const data = await res.json();
