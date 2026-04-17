@@ -2419,7 +2419,7 @@
             }
         }
 
-        window.sendSupportMessage = function() {
+        window.sendSupportMessage = async function() {
             const input = document.getElementById('support-input');
             if(!input || input.value.trim() === '') return;
             
@@ -2463,17 +2463,32 @@
                 renderApp();
                 scrollDown();
 
-                setTimeout(() => {
+                const WORKER_URL = "https://askai.mikestub705.workers.dev/";
+                
+                try {
+                    const res = await fetch(WORKER_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: text })
+                    });
+                    const data = await res.json();
+                    
                     if (chat.messages[msgIndex]) {
                         chat.messages[msgIndex].isThinking = false;
-                        chat.messages[msgIndex].text = currentUserAiPreference === 'Think' 
-                            ? "Das ist eine simulierte KI-Antwort, da die echte lokale KI derzeit nicht verbunden ist. Wenn du konkrete Fragen zur Webseite hast, leite ich das gerne an einen Admin weiter!" 
-                            : "Simulierte Antwort. (Lokale KI offline).";
+                        chat.messages[msgIndex].text = data.reply || "Es ist ein Fehler aufgetreten.";
                         window.saveState();
                         renderApp();
                         scrollDown();
                     }
-                }, 1500);
+                } catch (e) {
+                    if (chat.messages[msgIndex]) {
+                        chat.messages[msgIndex].isThinking = false;
+                        chat.messages[msgIndex].text = "Verbindungsfehler zum Support-Dienst.";
+                        window.saveState();
+                        renderApp();
+                        scrollDown();
+                    }
+                }
             }
         }
 
