@@ -40,11 +40,6 @@
         // =======================================================================
         // 🔴 ACHTUNG NETLIFY-NUTZER: FIREBASE KONFIGURATION 🔴
         // =======================================================================
-        // Damit Admins und Gäste in Echtzeit miteinander interagieren können
-        // (Support-Chat, Kommentare, etc.), trage hier deine Firebase-Daten ein!
-        // 1. Gehe zu https://firebase.google.com/ und erstelle ein Projekt.
-        // 2. Erstelle eine Web-App und aktiviere "Firestore Database" (im Testmodus).
-        // 3. Kopiere die Konfiguration und ersetze die Platzhalter hier:
         let myFirebaseConfig = {
             apiKey: "DEIN_API_KEY_HIER",
             authDomain: "DEIN_PROJEKT_ID.firebaseapp.com",
@@ -93,67 +88,12 @@
             { id: 1, username: "Darius Damman", text: "Hallo zusammen! Wir freuen uns über euer Feedback und eure Verbesserungsvorschläge.", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), likes: [], moderationStatus: 'approved' }
         ];
 
-        // --- OLLAMA AI KONFIGURATION ---
+        // --- OLLAMA AI KONFIGURATION (Inaktiv, aber für Admin-Dashboard behalten) ---
         let ollamaUrl = "http://localhost:11434";
         let ollamaModelLoggedIn = "gemma4:e4b";
         let ollamaModelGuest = "gemma4:e2b-it-q4_K_M";
         let currentUserAiPreference = "Think";
-        
-        let ollamaSystemPrompt = `
-
-Du bist der freundliche, professionelle AI-Support-Assistent der 'Winterthur Times', einer modernen Online-Zeitungsplattform. Dein Ziel ist es, Nutzern bei technischen oder inhaltlichen Fragen zur Website zu helfen.
-
-DEINE AUFGABEN:
-- Unterstützung bei Funktionen: Artikel lesen, Kommentare, Likes, Profilverwaltung, Login, Tagesbilder.
-- Problemlösung: Hilfe bei Login-Fehlern, Kommentar-Problemen, Bild-Uploads, Button suche etc.
-- Erkläre die Funktionen der Plattform einfach, verständlich und lösungsorientiert.
-
-KERNREGELN (STRIKT EINHALTEN):
-1. Fokus: Du bist KEIN allgemeiner Chatbot. Beantworte AUSSCHLIESSLICH Fragen zu den Features dieser Website. Erfinde keine Funktionen, die nicht existieren.
-2. Sicherheit: Gib NIEMALS externe Links heraus.
-3. Transparenz-Hinweis: Weise den Benutzer bei seiner ersten Nachricht freundlich darauf hin, dass Admins den Chatverlauf lesen können.
-4. Lösungsansatz: Gib klare Schritt-für-Schritt-Anleitungen. Lieber ein nützliches Detail zu viel als zu wenig. Stelle gezielte Rückfragen bei Unklarheiten. Wenn etwas nicht möglich ist, erkläre kurz warum.
-
-KOMMUNIKATIONSSTIL & TON:
-- Professionell, locker, freundlich und ruhig.
-- Kein Fachjargon und keine Emojis verwenden.
-- Gäste (nicht eingeloggt): Antworte sehr prägnant und STRIKT nach den Regeln (Maximal ca. 150 Wörter).
-- Eingeloggte Nutzer: Antworte ausführlicher und noch detaillierter (Maximal ca. 250 Wörter).
-
-Du bist KEIN allgemeiner Chatbot – du bist ausschließlich für Support dieser Website da.
-
-Websitenlayout:
- Objekt			| Position					| aussehen						| funktion
--Login			| oben rechts					| simples person logo und dacher der text 'Login'	| man kann sich danach anmelden oder auf den link 'Hier erstellen' um ein neuen accound erstellen
- -Neuer Accound		|unten mitte im Loginfenster			| text 'Hier erstellen'					| führt den benutzer zum Login Fenster wo der Benutzer Benutzername, Vorname, Nachnahme, E-mail und Passwort eingeben muss
--Menue			| oben links					| drei striche (Hamburgersimbol)			| man kommt ins menue kann dann zur Startseite und Themen gehen
- -(menue) Startseite	| 1tes im menue					| text 'Startseite'					| navigiert den Benutzer zur Startseite
- -(menue) Tagesbilder	| 2tes im menue					| text 'Tagesbilder'					| navigiert den Benutzer zur Tagesbildergalerie
- -(menue) Politik	| 3tes im menue					| text 'Politik'					| navigiert den Benutzer zu den Artikel die mit den Thema Politik zu tun haben
- -(menue) Wirtschaft	| 4tes im menue					| text 'Wirtschaft'					| navigiert den Benutzer zu den Artikel die mit den Thema Wirtschaft zu tun haben
- -(menue) Gesellschaft	| 5tes im menue					| text 'Gesellschaft'					| navigiert den Benutzer zu den Artikel die mit den Thema Gesellschaft zu tun haben
- -(menue) Kultur	| 6tes im menue					| text 'Kultur'						| navigiert den Benutzer zu den Artikel die mit den Thema Kultur zu tun haben
- -(menue) Sport		| 7tes im menue					| text 'Sport'						| navigiert den Benutzer zu den Artikel die mit den Thema Sport zu tun haben
- -(menue) Lokales	| 8tes im menue					| text 'Lokales'					| navigiert den Benutzer zu den Artikel die mit den Thema Lokales zu tun haben
- -(menue) Wissenschaft	| 9tes im menue					| text 'Wissenschaft'					| navigiert den Benutzer zu den Artikel die mit den Thema Wissenschaft zu tun haben
- -(menue) Unterhaltung	| 10tes im menue				| text 'Unterhaltung'					| navigiert den Benutzer zu den Artikel die mit den Thema Unterhaltung zu tun haben
- -(menue) Unsere Autoren| 3 unterste im menue				| text 'Unsere Autoren'					| navigiert den Benutzer zu den Autoren
- -(menue) Abonnements	| 2 unterste im menue				| text 'Abonnents'					| noch nicht verfügbar
- -(menue) Newsletter	| unterste im menue				| text 'Newsletter'					| noch nicht verfügbar
--Wetter/ Temperatur/date| oben rechts unter dem Login			| text '(Tag, Monat, Jahr)' text '(ort , Temperatur)'	| zeigt nur den Tag, datum, wetter und Temperatur an
--Suchen			| oben links neben dem menue button		| Lupe icon						| öffnet oben eine suchleiste um nach Artikel zu suchen
--Tagesbilder		| unter der wetter, Temperatur, datum		| Hell grünes Rechteck mit text 'Zur Galerie ->'	| öffnet die Tagesbildergalerie um Bilder hochzuladen oder anzuschauen (schneller als der im menue)
--Meistgelesen		| unter dem Tagesbilder Rechteck (Mitte) rechts	| roter punkt Titel 'Meistgelesen'			| zeigt die Meistgelesenen Artikel und man kann auf 1 oder 2 usw draufkliken damit der benutzer zum Artikel navigiert wird
--Abonnieren		| unten rechts					| Blaues Rechteck Titel 'Das Wichtigste am Morgen	| noch nicht verfügbar
-
-
-HINTERGRUNDINFORMATIONEN:
-- Zielgruppe: Menschen aller Altersgruppen, die ihre Interessen an Nachrichten entdecken wollen. Jederzeit offen für Verbesserungsvorschläge.
-- Erstellungsdatum der Website: 13.04.2026.
-- Die Website kann teils veraltete Informationen enthalten und du bist als KI möglicherweise nicht auf dem allerneuesten Stand der Echtdaten.
-
-`;
-        
+        let ollamaSystemPrompt = `Du bist der Support.`;
         let ollamaModerationEnabled = true;
         let ollamaModerationModel = "gemma4:e2b-it-q4_K_M"; 
         let ollamaModerationPrompt = `Du bist ein strenger Content-Moderator. Antworte AUSSCHLIESSLICH mit 'JA' oder 'NEIN'.\n\nZu prüfender Text: `;
@@ -420,33 +360,8 @@ HINTERGRUNDINFORMATIONEN:
 
         // --- KI MODERATIONS LOGIK ---
         window.checkContentWithAi = async function(text, type, id, parentId) {
-            if (!ollamaUrl || !ollamaModerationEnabled) {
-                finalizeModeration(type, id, parentId, 'approved');
-                return;
-            }
-            try {
-                const payload = {
-                    model: ollamaModerationModel,
-                    messages: [{ role: 'user', content: ollamaModerationPrompt + "\n\"" + text + "\"" }],
-                    stream: false
-                };
-                const res = await fetch(`${ollamaUrl}/api/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) throw new Error('Ollama API Error');
-                const data = await res.json();
-                const aiReply = data.message.content.trim().toUpperCase();
-                
-                if (aiReply.includes('NEIN')) {
-                    finalizeModeration(type, id, parentId, 'pending');
-                } else {
-                    finalizeModeration(type, id, parentId, 'approved');
-                }
-            } catch (e) {
-                finalizeModeration(type, id, parentId, 'approved');
-            }
+            // Vereinfachte Moderationslogik ohne Ollama
+            finalizeModeration(type, id, parentId, 'approved');
         };
 
         window.finalizeModeration = function(type, id, parentId, status) {
@@ -693,7 +608,6 @@ HINTERGRUNDINFORMATIONEN:
                         const isAuthor = currentUser === f.username;
                         const status = f.moderationStatus || 'approved';
                         
-                        // Verstecke blockiertes/prüfendes Feedback vor Gästen/normalen Usern
                         if (status !== 'approved' && !isAuthor && !isAdmin) return '';
 
                         let modBadge = '';
@@ -942,7 +856,6 @@ HINTERGRUNDINFORMATIONEN:
                             const isAuthor = currentUser === c.username;
                             const status = c.moderationStatus || 'approved';
                             
-                            // Filtere blockierte oder ungeprüfte Kommentare, wenn man nicht Admin oder der Autor ist
                             if (status !== 'approved' && !isAuthor && !isAdmin) return '';
 
                             let modBadge = '';
@@ -1645,47 +1558,8 @@ HINTERGRUNDINFORMATIONEN:
                         
                         ${isSuperAdmin ? `
                             <div class="bg-gray-50 border border-gray-200 p-4 rounded mb-6 flex flex-col gap-4 shadow-sm">
-                                <div class="w-full">
-                                    <label class="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><i data-lucide="bot" class="w-4 h-4 text-indigo-600"></i> KI Einstellungen (Ollama Server)</label>
-                                    
-                                    <div class="flex-1 mt-2 mb-4 border-b border-gray-200 pb-4">
-                                        <span class="text-xs text-gray-500 font-bold uppercase mb-1 block">Ollama Endpoint URL</span>
-                                        <input type="text" id="adminOllamaUrl" value="${ollamaUrl}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-sans text-sm" placeholder="http://localhost:11434" />
-                                    </div>
-
-                                    <h4 class="font-bold text-gray-700 mb-2 text-sm uppercase tracking-wide flex items-center gap-1"><i data-lucide="message-square" class="w-4 h-4"></i> Support-Chat Einstellungen</h4>
-                                    <div class="flex flex-col md:flex-row gap-4">
-                                        <div class="flex-1">
-                                            <span class="text-xs text-gray-500 font-bold uppercase mb-1 block">Modell (Eingeloggt)</span>
-                                            <input type="text" id="adminOllamaModelLoggedIn" value="${ollamaModelLoggedIn}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-sans text-sm" />
-                                        </div>
-                                        <div class="flex-1">
-                                            <span class="text-xs text-gray-500 font-bold uppercase mb-1 block">Modell (Gäste)</span>
-                                            <input type="text" id="adminOllamaModelGuest" value="${ollamaModelGuest}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-sans text-sm" />
-                                        </div>
-                                    </div>
-                                    <div class="mt-2">
-                                        <span class="text-xs text-gray-500 font-bold uppercase mb-1 block">System-Prompt (Support KI)</span>
-                                        <textarea id="adminOllamaPrompt" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-sans text-sm">${ollamaSystemPrompt}</textarea>
-                                    </div>
-
-                                    <h4 class="font-bold text-gray-700 mt-6 mb-2 text-sm uppercase tracking-wide flex items-center gap-1"><i data-lucide="shield-check" class="w-4 h-4"></i> KI Moderations-Filter</h4>
-                                    <div class="flex items-center gap-3 bg-white p-3 rounded border border-gray-200 mb-4">
-                                        <input type="checkbox" id="adminModEnabled" ${ollamaModerationEnabled ? 'checked' : ''} class="w-5 h-5 cursor-pointer text-indigo-600 rounded" />
-                                        <label for="adminModEnabled" class="font-bold text-gray-700 cursor-pointer">Automatische Prüfung von Kommentaren/Feedback durch KI aktivieren</label>
-                                    </div>
-                                    <div class="flex-1 mb-2">
-                                        <span class="text-xs text-gray-500 font-bold uppercase mb-1 block">Modell (Für Moderation)</span>
-                                        <input type="text" id="adminOllamaModModel" value="${ollamaModerationModel}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-sans text-sm" />
-                                    </div>
-                                    <div class="mt-2">
-                                        <span class="text-xs text-gray-500 font-bold uppercase mb-1 block">System-Prompt (Moderations KI)</span>
-                                        <textarea id="adminOllamaModPrompt" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-sans text-sm">${ollamaModerationPrompt}</textarea>
-                                    </div>
-
-                                    <div class="flex justify-end mt-4">
-                                        <button onclick="saveOllamaSettings()" class="bg-indigo-900 text-white font-bold py-2.5 px-6 rounded hover:bg-indigo-800 transition-colors text-sm cursor-pointer whitespace-nowrap shadow-sm">Einstellungen speichern</button>
-                                    </div>
+                                <div class="w-full text-gray-500 italic text-sm text-center">
+                                    KI Funktionen (Ollama) sind in dieser Version deaktiviert.
                                 </div>
                             </div>
                         ` : ''}
@@ -1704,7 +1578,6 @@ HINTERGRUNDINFORMATIONEN:
                                     
                                     return `
                                         <div onclick="adminSelectedChatId = ${c.id}; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
-                                            ${c.aiEnabled !== false && ollamaUrl ? '<i data-lucide="bot" class="absolute top-2 right-2 w-3 h-3 text-indigo-400" title="KI aktiv in diesem Chat"></i>' : ''}
                                             <div class="flex justify-between items-start mb-1">
                                                 <span class="font-bold text-sm ${isUnread ? 'text-blue-900' : 'text-gray-700'} truncate flex items-center gap-1" title="${c.userId}">
                                                     ${c.userId.length > 15 ? c.userId.substring(0, 15) + '...' : c.userId}
@@ -1731,50 +1604,27 @@ HINTERGRUNDINFORMATIONEN:
                                     const user = registeredUsers.find(u => u.username === chat.userId);
                                     const isBanned = user ? user.isBanned : false;
                                     
-                                    const chatModelName = !user ? 'Free' : (chat.userId === currentUser ? currentUserAiPreference : 'Think / Free');
-                                    
                                     return `
                                         <div class="bg-white p-4 border-b border-gray-200 flex justify-between items-center shadow-sm z-10">
                                             <h4 ${user ? `onclick="viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-blue-900 flex items-center gap-2 ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
                                                 ${user ? getUserAvatar(chat.userId, 'w-6 h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-5 h-5"></i>'}
                                                 Chat mit ${chat.userId}
-                                                <span class="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200 ml-2" title="KI-Modell für diesen Chat">KI: ${chatModelName}</span>
                                                 ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
                                                 ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
                                             </h4>
-                                            ${ollamaUrl ? `
-                                                <button onclick="toggleChatAi(${chat.id})" class="text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-sm border ${chat.aiEnabled !== false ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'}" title="Aktivieren/Deaktivieren der automatischen KI-Antworten in diesem spezifischen Chat">
-                                                    <i data-lucide="${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-4 h-4"></i> ${chat.aiEnabled !== false ? 'KI antwortet' : 'KI pausiert'}
-                                                </button>
-                                            ` : ''}
                                         </div>
                                         
                                         <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
                                             ${chat.messages.map((m, index) => `
                                                 <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
-                                                    <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : (m.sender === 'ai' ? 'bg-indigo-700 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none')} shadow-sm">
-                                                        ${m.sender === 'ai' ? '<span class="text-[10px] font-bold text-indigo-200 block mb-1 flex items-center gap-1"><i data-lucide="bot" class="w-3 h-3"></i> AI-Support</span>' : ''}
+                                                    <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
                                                         <p class="text-sm">${m.text}</p>
                                                         <div class="flex justify-between items-center mt-1 gap-4">
                                                             <span class="text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
-                                                            ${m.sender === 'ai' && m.rating ? `
-                                                                <div class="flex gap-1 bg-white/10 rounded px-1" title="Nutzer-Bewertung">
-                                                                    ${m.rating === 'like' ? '<i data-lucide="thumbs-up" class="w-3 h-3 text-green-300 fill-current"></i>' : '<i data-lucide="thumbs-down" class="w-3 h-3 text-red-300 fill-current"></i>'}
-                                                                </div>
-                                                            ` : ''}
                                                         </div>
                                                     </div>
                                                 </div>
                                             `).join('')}
-                                            
-                                            ${chat.isTyping ? `
-                                                <div class="flex justify-end">
-                                                    <div class="bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-lg rounded-br-none p-3 shadow-sm flex items-center gap-2">
-                                                        <i data-lucide="bot" class="w-4 h-4 animate-pulse text-indigo-600"></i>
-                                                        <span class="text-xs font-bold animate-pulse">KI generiert Antwort...</span>
-                                                    </div>
-                                                </div>
-                                            ` : ''}
                                         </div>
                                         
                                         <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
@@ -1907,96 +1757,45 @@ HINTERGRUNDINFORMATIONEN:
             </div>`;
         }
 
-        // --- SUPPORT CHAT WIDGET ---
+        // --- DEIN NEUES SUPPORT CHAT WIDGET ---
         function renderSupportChatWidget() {
             if (hasAdminAccess() && view === 'admin-dashboard') return ''; 
             if (view === 'feedback') return ''; 
             
             const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
-            const isGuestSupport = !currentUser && activeChatUser && activeChatUser.startsWith('Gast-');
+            let userChat = supportChats.find(c => c.userId === activeChatUser);
+            let messagesHtml = '';
             
-            let kiDisplay = '';
-            if (isGuestSupport) {
-                kiDisplay = `
-                <div class="flex items-center bg-blue-800 rounded-full p-0.5 ml-1 border border-blue-700 text-[10px]">
-                    <button class="bg-blue-600 text-white shadow-sm font-bold px-2 py-0.5 rounded-full transition-colors cursor-default" title="Gast-Modus (Free)">Free</button>
-                    <button onclick="showUserLogin()" class="text-blue-400/60 hover:text-white px-2 py-0.5 rounded-full transition-colors cursor-pointer flex items-center gap-0.5" title="Think (4b) - Bitte einloggen">Think <i data-lucide="lock" class="w-2.5 h-2.5"></i></button>
-                </div>
-                `;
-            } else {
-                kiDisplay = `
-                <div class="flex items-center bg-blue-800 rounded-full p-0.5 ml-1 border border-blue-700 text-[10px]">
-                    <button onclick="setUserAiPreference('Free')" class="${currentUserAiPreference === 'Free' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-blue-300 hover:text-white'} px-2 py-0.5 rounded-full transition-colors cursor-pointer" title="Free (1b)">Free</button>
-                    <button onclick="setUserAiPreference('Think')" class="${currentUserAiPreference === 'Think' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-blue-300 hover:text-white'} px-2 py-0.5 rounded-full transition-colors cursor-pointer" title="Think (4b)">Think</button>
-                </div>
-                `;
+            if (userChat) {
+                messagesHtml = userChat.messages.map(m => `
+                    <div class="mb-2 ${m.sender === 'user' ? 'text-right' : 'text-left'}">
+                        <span class="inline-block px-3 py-1.5 rounded text-sm ${m.sender === 'user' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-gray-300 text-black shadow-sm'}">
+                            ${m.text}
+                        </span>
+                    </div>
+                `).join('');
             }
 
             return `
-            <button onclick="toggleSupportChat()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-900 text-white p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-transform hover:scale-105 z-[60] flex items-center justify-center cursor-pointer">
-                <i data-lucide="message-circle" class="w-6 h-6"></i>
-            </button>
+            <!-- Support-Button unten rechts -->
+            <div id="support-button" onclick="toggleSupportChat()" class="fixed bottom-6 right-6 bg-blue-900 text-white px-6 py-3 rounded-full shadow-2xl cursor-pointer font-bold z-50 hover:bg-blue-800 transition-colors">
+                Support
+            </div>
 
-            ${isSupportChatOpen ? `
-                <div class="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 w-[calc(100vw-2rem)] sm:w-80 md:w-96 bg-white rounded-lg shadow-2xl z-[60] flex flex-col border border-gray-200 overflow-hidden font-sans" style="height: 500px; max-height: calc(100vh - 6rem);">
-                    <div class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-sm z-10">
-                        <h3 class="font-bold flex items-center gap-2">
-                            <i data-lucide="help-circle" class="w-5 h-5"></i> Support
-                            ${kiDisplay}
-                        </h3>
-                        <div class="flex items-center gap-3">
-                            ${isGuestSupport ? `
-                                <button onclick="showUserLogin()" class="text-white hover:text-blue-200 transition-colors flex items-center gap-1 bg-blue-800 hover:bg-blue-700 px-2 py-1 rounded text-xs cursor-pointer" title="Jetzt einloggen, um das volle Profil zu nutzen">
-                                    <i data-lucide="user-plus" class="w-4 h-4"></i> Einloggen
-                                </button>
-                            ` : ''}
-                            <button onclick="toggleSupportChat()" class="text-white hover:text-gray-300 cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
-                        </div>
-                    </div>
-                    
-                    ${(() => {
-                        const userChat = supportChats.find(c => c.userId === activeChatUser);
-                        const messages = userChat ? userChat.messages : [];
-                        return `
-                            <div class="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-3" id="chatMessageContainer">
-                                <div class="text-center text-xs text-gray-500 my-2 bg-gray-200 py-1 px-3 rounded-full self-center">Willkommen im Support, ${isGuestSupport ? 'Gast' : activeChatUser}! Wie können wir dir helfen?</div>
-                                ${messages.map((m, index) => `
-                                    <div class="flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}">
-                                        <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : (m.sender === 'ai' ? 'bg-indigo-50 border border-indigo-200 text-gray-800 rounded-bl-none shadow-sm' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none shadow-sm')}">
-                                            ${m.sender === 'ai' ? '<span class="text-[10px] font-bold text-indigo-600 block mb-1 flex items-center gap-1"><i data-lucide="bot" class="w-3 h-3"></i> AI-Support</span>' : ''}
-                                            <p class="text-sm">${m.text}</p>
-                                            
-                                            <div class="flex justify-between items-center mt-1 gap-4">
-                                                <span class="text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-blue-200 text-right w-full' : 'text-gray-400 text-left'}">${new Date(m.timestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}</span>
-                                                ${m.sender === 'ai' ? `
-                                                    <div class="flex gap-1 shrink-0">
-                                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'like')" class="p-1 rounded hover:bg-green-100 transition-colors ${m.rating === 'like' ? 'text-green-600' : 'text-gray-400'}" title="Hilfreiche Antwort"><i data-lucide="thumbs-up" class="w-3 h-3 ${m.rating === 'like' ? 'fill-current' : ''}"></i></button>
-                                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'dislike')" class="p-1 rounded hover:bg-red-100 transition-colors ${m.rating === 'dislike' ? 'text-red-600' : 'text-gray-400'}" title="Nicht hilfreich"><i data-lucide="thumbs-down" class="w-3 h-3 ${m.rating === 'dislike' ? 'fill-current' : ''}"></i></button>
-                                                    </div>
-                                                ` : ''}
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                                
-                                ${userChat && userChat.isTyping ? `
-                                    <div class="flex justify-start">
-                                        <div class="bg-indigo-50 border border-indigo-200 text-gray-800 rounded-lg rounded-bl-none p-3 shadow-sm flex items-center gap-2">
-                                            <i data-lucide="bot" class="w-4 h-4 text-indigo-600 animate-pulse"></i>
-                                            <span class="text-xs text-indigo-600 font-bold animate-pulse">AI tippt...</span>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            
-                            <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-                                <input type="text" id="supportInput" placeholder="Deine Nachricht..." class="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') sendSupportMessage()" />
-                                <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2 w-10 h-10 rounded-full hover:bg-blue-800 flex items-center justify-center cursor-pointer shrink-0"><i data-lucide="send" class="w-4 h-4 ml-[-2px]"></i></button>
-                            </div>
-                        `;
-                    })()}
-                </div>
-            ` : ''}
+            <!-- Chat-Fenster -->
+            <div id="support-chat" class="${isSupportChatOpen ? 'fixed' : 'hidden'} bottom-20 right-6 w-[calc(100vw-2rem)] sm:w-80 bg-white border border-gray-300 rounded shadow-2xl z-50 flex flex-col h-96 font-sans overflow-hidden">
+              <div id="support-header" class="bg-blue-900 text-white p-3 font-bold flex justify-between items-center">
+                Support-Chat
+                <span id="support-close" onclick="toggleSupportChat()" class="cursor-pointer hover:text-gray-300 px-2 font-black">X</span>
+              </div>
+              <div id="support-messages" class="flex-1 p-3 overflow-y-auto bg-gray-50">
+                ${messagesHtml}
+              </div>
+              <div id="support-input-row" class="p-2 bg-white border-t border-gray-300 flex gap-2">
+                <input id="support-input" type="text" placeholder="Deine Frage..." class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') sendSupportMessage()" />
+                <button id="support-send" onclick="sendSupportMessage()" class="bg-blue-900 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-blue-800 transition-colors">Senden</button>
+              </div>
+            </div>
             `;
         }
 
@@ -2156,7 +1955,6 @@ HINTERGRUNDINFORMATIONEN:
             }
         }
 
-        // Bewahrt den Fokus in Eingabefeldern bei re-renders
         let activeInputId = null;
         let activeInputSelectionStart = null;
         let activeInputSelectionEnd = null;
@@ -2522,7 +2320,7 @@ HINTERGRUNDINFORMATIONEN:
                 if(modPrompt) ollamaModerationPrompt = modPrompt.value.trim();
 
                 window.saveState();
-                showModal('Gespeichert', 'Die Ollama-Konfigurationen wurden erfolgreich aktualisiert.');
+                showModal('Gespeichert', 'Die Einstellungen wurden erfolgreich aktualisiert.');
                 renderApp();
             }
         }
@@ -2536,115 +2334,22 @@ HINTERGRUNDINFORMATIONEN:
             }
         }
 
-        window.triggerAiReply = async function(chatId) {
-            if (!ollamaUrl) return;
-            
-            let chat = supportChats.find(c => c.id === chatId);
-            if (!chat || chat.aiEnabled === false) return;
-            
-            chat.isTyping = true;
-            renderApp(); 
-            
-            setTimeout(() => {
-                const container = document.getElementById('chatMessageContainer');
-                if(container) container.scrollTop = container.scrollHeight;
-                const adminContainer = document.getElementById('adminChatContainer');
-                if(adminContainer) adminContainer.scrollTop = adminContainer.scrollHeight;
-            }, 50);
-
-            const chatUserObj = registeredUsers.find(u => u.username === chat.userId);
-            const isGuestChat = !chatUserObj;
-            const userStatusStr = isGuestChat ? "NICHT EINGELOGGT (Gast-Modus)" : `EINGELOGGT als '${chat.userId}'`;
-            
-            let activeModel;
-            if (isGuestChat) {
-                activeModel = ollamaModelGuest;
-            } else {
-                const pref = (chat.userId === currentUser) ? currentUserAiPreference : 'Think';
-                activeModel = pref === 'Free' ? ollamaModelGuest : ollamaModelLoggedIn;
-            }
-            
-            const activeArticles = articles.filter(a => !a.autoDeleteDate || new Date(a.autoDeleteDate) > new Date());
-            const articlesListStr = activeArticles.length > 0 
-                ? activeArticles.map(a => `- [ID ${a.id}] ${a.category}: "${a.title}" (Autor: ${a.author})`).join('\n')
-                : "Keine Artikel momentan verfügbar.";
-
-            const systemInstruction = `${ollamaSystemPrompt}\n\nWICHTIGE AKTUELLE SYSTEM-INFORMATIONEN:\n- Benutzer-Status: ${userStatusStr}\n- Sichtbare Artikel:\n${articlesListStr}`;
-            
-            const messages = [
-                { role: 'system', content: systemInstruction },
-                ...chat.messages.map(m => ({
-                    role: m.sender === 'user' ? 'user' : 'assistant',
-                    content: m.text
-                }))
-            ];
-            
-            const payload = {
-                model: activeModel || "llama3",
-                messages: messages,
-                stream: false
-            };
-
-            try {
-                const response = await fetch(`${ollamaUrl}/api/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
-                const data = await response.json();
-                
-                if (data.message && data.message.content) {
-                    const text = data.message.content;
-                    chat.messages.push({
-                        sender: 'ai',
-                        text: text,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            } catch(e) {
-                console.error("Netzwerkfehler Ollama:", e);
-                chat.messages.push({
-                    sender: 'ai',
-                    text: "[System: Ollama ist nicht erreichbar. Bitte prüfe, ob Ollama läuft und CORS (OLLAMA_ORIGINS='*') aktiviert ist.]",
-                    timestamp: new Date().toISOString()
-                });
-            } finally {
-                chat.isTyping = false;
-                window.saveState();
-                renderApp();
-                setTimeout(() => {
-                    const container = document.getElementById('chatMessageContainer');
-                    if(container) container.scrollTop = container.scrollHeight;
-                    const adminContainer = document.getElementById('adminChatContainer');
-                    if(adminContainer) adminContainer.scrollTop = adminContainer.scrollHeight;
-                    
-                    const input = document.getElementById('supportInput');
-                    if(input) input.focus();
-                    const adminInput = document.getElementById('adminSupportInput');
-                    if(adminInput) adminInput.focus();
-                }, 50);
-            }
-        }
-
         window.toggleSupportChat = function() {
             isSupportChatOpen = !isSupportChatOpen;
             renderApp();
             
             if(isSupportChatOpen) {
                 setTimeout(() => {
-                    const container = document.getElementById('chatMessageContainer');
+                    const container = document.getElementById('support-messages');
                     if(container) container.scrollTop = container.scrollHeight;
-                    const input = document.getElementById('supportInput');
+                    const input = document.getElementById('support-input');
                     if(input) input.focus();
                 }, 50);
             }
         }
 
         window.sendSupportMessage = function() {
-            const input = document.getElementById('supportInput');
+            const input = document.getElementById('support-input');
             if(!input || input.value.trim() === '') return;
             
             const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
@@ -2654,7 +2359,7 @@ HINTERGRUNDINFORMATIONEN:
             
             let chat = supportChats.find(c => c.userId === activeChatUser);
             if(!chat) {
-                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: true };
+                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: false };
                 supportChats.push(chat);
             }
             
@@ -2668,15 +2373,11 @@ HINTERGRUNDINFORMATIONEN:
             renderApp();
             
             setTimeout(() => {
-                const container = document.getElementById('chatMessageContainer');
+                const container = document.getElementById('support-messages');
                 if(container) container.scrollTop = container.scrollHeight;
-                const inputRef = document.getElementById('supportInput');
+                const inputRef = document.getElementById('support-input');
                 if(inputRef) inputRef.focus();
             }, 50);
-
-            if (ollamaUrl && chat.aiEnabled !== false) {
-                triggerAiReply(chat.id);
-            }
         }
 
         window.adminReplySupportMessage = function(chatId) {
@@ -2786,7 +2487,7 @@ HINTERGRUNDINFORMATIONEN:
 
             if(isSupportChatOpen) {
                 setTimeout(() => {
-                    const input = document.getElementById('supportInput');
+                    const input = document.getElementById('support-input');
                     if(input) input.focus();
                 }, 100);
             }
@@ -2852,7 +2553,7 @@ HINTERGRUNDINFORMATIONEN:
 
             if(isSupportChatOpen) {
                 setTimeout(() => {
-                    const input = document.getElementById('supportInput');
+                    const input = document.getElementById('support-input');
                     if(input) input.focus();
                 }, 100);
             }
