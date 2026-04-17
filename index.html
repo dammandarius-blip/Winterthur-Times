@@ -748,7 +748,7 @@
                         ${trendingArticles.map((story, i) => `
                             <li onclick="openArticle(${story.id})" class="flex gap-4 group cursor-pointer">
                                 <span class="text-3xl font-black text-gray-200 group-hover:text-blue-600 transition-colors font-sans">${i + 1}</span>
-                                <h4 class="font-bold text-base group-hover:text-blue-600 transition-colors mt-1 line-clamp-2">${story.title}</h4>
+                                <h4 class="meistgelesen-item font-bold text-base group-hover:text-blue-600 transition-colors mt-1 line-clamp-2">${story.title}</h4>
                             </li>
                         `).join('')}
                     </ul>
@@ -2354,6 +2354,11 @@
             }
         }
 
+        window.getPopularArticles = function() {
+            const items = document.querySelectorAll(".meistgelesen-item");
+            return Array.from(items).map(el => el.textContent.trim());
+        }
+
         window.toggleChatAi = function(chatId) {
             let chat = supportChats.find(c => c.id === chatId);
             if (chat) {
@@ -2427,7 +2432,12 @@
                     // --- KI-KONTEXT GENERIEREN ---
                     // Wir geben der KI unsichtbar mit, wer gerade angemeldet ist und auf welcher Seite er sich befindet.
                     const userStatus = currentUser ? `eingeloggt als '${currentUser}' (Rolle: ${getCurrentUserRole()})` : "ein Gast (nicht eingeloggt)";
-                    const contextPrefix = `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'. Antworte hilfreich auf Basis dieser Informationen.]\nNutzerfrage: `;
+                    
+                    // Beliebte Artikel auslesen
+                    const popularArticles = window.getPopularArticles();
+                    const popularContext = popularArticles.length > 0 ? ` Die aktuell meistgelesenen Artikel sind: ${popularArticles.join(', ')}.` : "";
+                    
+                    const contextPrefix = `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'.${popularContext} Antworte hilfreich auf Basis dieser Informationen.]\nNutzerfrage: `;
                     
                     // Wir setzen die Variable, damit deine gewünschte Abfrage funktioniert
                     window.isLoggedIn = !!currentUser;
@@ -2437,7 +2447,8 @@
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ 
                             message: contextPrefix + text,
-                            loggedIn: window.isLoggedIn === true
+                            loggedIn: window.isLoggedIn === true,
+                            popularArticles: popularArticles
                         })
                     });
                     const data = await res.json();
