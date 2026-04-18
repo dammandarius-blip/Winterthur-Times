@@ -3,7 +3,7 @@
         let hasPassedGatekeeper = !ENABLE_STUDENT_GATEKEEPER;
 
         // =======================================================================
-        // 🔴 ACHTUNG NETLIFY-NUTZER: FIREBASE KONFIGURATION 🔴
+        // FIREBASE KONFIGURATION
         // =======================================================================
         let myFirebaseConfig = {
             apiKey: "AIzaSyDiYFdcmwniMpAuFB_N2kAkD9AIgHhgaVU",
@@ -52,8 +52,6 @@
         let siteFeedbacks = [
             { id: 1, username: "Darius Damman", text: "Hallo zusammen! Wir freuen uns über euer Feedback und eure Verbesserungsvorschläge.", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), likes: [], moderationStatus: 'approved' }
         ];
-
-        let currentUserAiPreference = "Think";
 
         let view = 'home';
         let articles = JSON.parse(JSON.stringify(initialArticles));
@@ -510,27 +508,7 @@
             });
         }, 60000);
 
-        window.setUserAiPreference = function(pref) {
-            currentUserAiPreference = pref;
-            renderApp();
-        }
-
-        window.rateAiMessage = function(chatId, msgIndex, rating) {
-            const chat = supportChats.find(c => c.id === chatId);
-            if (chat && chat.messages[msgIndex]) {
-                const msg = chat.messages[msgIndex];
-                if (msg.rating === rating) msg.rating = null; 
-                else msg.rating = rating;
-                window.saveState();
-                renderApp();
-            }
-        }
-
-        // --- KI MODERATIONS LOGIK ---
-        window.checkContentWithAi = async function(text, type, id, parentId) {
-            // Vereinfachte Moderationslogik ohne Ollama
-            finalizeModeration(type, id, parentId, 'approved');
-        };
+        // --- MODERATION ---
 
         window.finalizeModeration = function(type, id, parentId, status) {
             if (type === 'comment') {
@@ -578,25 +556,26 @@
             let dashboardLabel = hasAdminAccess() ? 'Admin' : 'Redaktion';
 
             return `
-            <div class="bg-black text-white text-xs py-1 px-4 flex justify-between items-center font-sans tracking-wide">
-                <div class="flex gap-4">
-                    <span onclick="showModal('Abonnements', 'Unsere Abo-Angebote werden derzeit überarbeitet. Bitte schauen Sie später wieder vorbei!')" class="cursor-pointer hover:text-gray-300 transition-colors hidden sm:block">Abo</span>
-                    <span onclick="showModal('E-Paper', 'Das E-Paper ist in dieser Demo-Version noch nicht verfügbar.')" class="cursor-pointer hover:text-gray-300 transition-colors hidden sm:block">E-Paper</span>
-                    <span onclick="showModal('Newsletter', 'Die Newsletter sind noch nicht verfügbar.')" class="cursor-pointer hover:text-gray-300 transition-colors hidden sm:block">Newsletter</span>
-                </div>
-                <div class="flex gap-4 items-center ml-auto">
-                    ${isFirebaseConnected ? '<span class="text-green-400 hidden sm:flex items-center gap-1 border-r border-gray-600 pr-4 mr-2" title="Echtzeit-Synchronisation aktiv"><i data-lucide="wifi" class="w-3 h-3"></i> Live</span>' : '<span class="text-orange-400 hidden sm:flex items-center gap-1 border-r border-gray-600 pr-4 mr-2" title="Firebase fehlt: Nur lokaler Modus"><i data-lucide="wifi-off" class="w-3 h-3"></i> Lokal</span>'}
-                    <span onclick="setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer text-green-400 font-bold hover:text-green-300 transition-colors flex items-center gap-1 border-r border-gray-600 pr-4 mr-2">
+            <div class="bg-black text-white text-xs py-2 px-3 sm:px-4 font-sans tracking-wide flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div class="flex items-center gap-3">
+                    <span onclick="setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer text-green-400 font-bold hover:text-green-300 transition-colors flex items-center gap-1">
                         <i data-lucide="camera" class="w-3 h-3"></i> Tagesbilder
                     </span>
                     ${hasAuthorAccess() ? `
-                        <span onclick="adminTab='articles'; setView('admin-dashboard')" class="cursor-pointer text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1 border-r border-gray-600 pr-4 mr-2">
+                        <span onclick="adminTab='articles'; setView('admin-dashboard')" class="cursor-pointer text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1">
                             <i data-lucide="${dashboardIcon}" class="w-3 h-3"></i> ${dashboardLabel}
                         </span>
                     ` : ''}
+                </div>
+
+                <div class="flex items-center gap-3 ml-auto">
                     ${currentUser ? `
-                        <span class="cursor-pointer font-bold text-gray-300 hover:text-white transition-colors flex items-center gap-1" onclick="setView('profile')" title="Zum Profil"><i data-lucide="user" class="w-3 h-3"></i> ${getDisplayName(currentUser)} ${role !== 'user' ? `(${role})` : ''}</span>
-                        <span class="cursor-pointer hover:text-white transition-colors ml-2" onclick="handleUserLogout()">Abmelden</span>
+                        <span class="cursor-pointer font-bold text-gray-300 hover:text-white transition-colors flex items-center gap-1" onclick="setView('profile')" title="Zum Profil">
+                            <i data-lucide="user" class="w-3 h-3"></i>
+                            <span class="hidden sm:inline">${getDisplayName(currentUser)} ${role !== 'user' ? `(${role})` : ''}</span>
+                            <span class="sm:hidden">Profil</span>
+                        </span>
+                        <span class="cursor-pointer hover:text-white transition-colors" onclick="handleUserLogout()">Abmelden</span>
                     ` : `
                         <span class="cursor-pointer hover:text-gray-300 transition-colors flex items-center gap-1" onclick="showUserLogin()">
                             <i data-lucide="user" class="w-3 h-3"></i> Login
@@ -612,22 +591,22 @@
 
             return `
             <header class="border-b border-gray-300 sticky top-0 bg-[#fcfbf9] z-40">
-                <div class="max-w-7xl mx-auto px-4 py-2 sm:py-4 flex justify-between items-center">
-                    <div class="flex items-center gap-2 sm:gap-4 w-1/3">
+                <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-4 grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4">
+                    <div class="flex items-center gap-2 sm:gap-4 min-w-0">
                         <div id="header-3d-logo" class="w-12 h-12 sm:w-16 sm:h-16 shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="setView('home')" title="Zur Startseite"></div>
                         <button onclick="toggleMenu()" class="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
                             <i data-lucide="menu"></i>
                         </button>
-                        <button onclick="toggleSearch()" class="p-2 hover:bg-gray-100 rounded-full transition-colors hidden sm:block cursor-pointer">
+                        <button onclick="toggleSearch()" class="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" title="Suchen">
                             <i data-lucide="search"></i>
                         </button>
                     </div>
-                    <div class="w-1/3 text-center">
-                        <h1 onclick="setView('home')" class="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase font-serif cursor-pointer hover:text-blue-900 transition-colors">
+                    <div class="min-w-0 text-center">
+                        <h1 onclick="setView('home')" class="text-2xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase font-serif cursor-pointer hover:text-blue-900 transition-colors leading-none">
                             Winterthur Times
                         </h1>
                     </div>
-                    <div class="w-1/3 flex justify-end items-center gap-4 text-sm font-sans text-gray-600">
+                    <div class="flex justify-end items-center gap-4 text-sm font-sans text-gray-600 min-w-0">
                         <div class="hidden md:flex flex-col items-end">
                             <span class="font-semibold text-gray-900">${currentDate}</span>
                             <div class="flex items-center gap-1" title="Aktuelles Wetter">
@@ -639,9 +618,9 @@
                 </div>
                 ${isSearchOpen ? `
                 <div class="bg-gray-100 border-t border-gray-300 px-4 py-3 flex justify-center animate-fade-in shadow-inner">
-                    <div class="max-w-2xl w-full flex relative">
-                        <input type="text" id="searchInput" value="${searchQuery}" onkeypress="handleSearch(event)" placeholder="Nach Artikeln, Stichworten suchen..." class="w-full px-4 py-2 border border-gray-300 rounded-l focus:outline-none focus:border-blue-500 font-sans shadow-sm" />
-                        <button onclick="executeSearch()" class="bg-blue-900 text-white px-6 py-2 rounded-r font-bold hover:bg-blue-800 transition-colors shadow-sm cursor-pointer">Suchen</button>
+                    <div class="max-w-2xl w-full flex relative flex-col sm:flex-row">
+                        <input type="text" id="searchInput" value="${searchQuery}" onkeypress="handleSearch(event)" placeholder="Nach Artikeln, Stichworten suchen..." class="w-full px-4 py-2 border border-gray-300 rounded-t sm:rounded-l sm:rounded-r-none focus:outline-none focus:border-blue-500 font-sans shadow-sm" />
+                        <button onclick="executeSearch()" class="bg-blue-900 text-white px-6 py-2 rounded-b sm:rounded-r sm:rounded-l-none font-bold hover:bg-blue-800 transition-colors shadow-sm cursor-pointer">Suchen</button>
                     </div>
                 </div>
                 ` : ''}
@@ -779,8 +758,7 @@
                         if (status !== 'approved' && !isAuthor && !isAdmin) return '';
 
                         let modBadge = '';
-                        if (status === 'checking') modBadge = '<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold animate-pulse ml-2">KI prüft...</span>';
-                        else if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
+                        if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
 
                         return `
                         <div class="flex gap-3 ${f.username === currentUser ? 'flex-row-reverse' : ''}">
@@ -930,13 +908,10 @@
                     </ul>
                 </div>
                 <div class="bg-blue-50 p-6 border border-blue-100 mt-4 text-center rounded-sm">
-                    <i data-lucide="mail" class="w-8 h-8 text-blue-600 mx-auto mb-3"></i>
-                    <h3 class="text-xl font-bold mb-2">Das Wichtigste am Morgen</h3>
-                    <p class="text-sm text-gray-600 mb-4 font-sans">Melden Sie sich für unseren kostenlosen täglichen Newsletter an.</p>
-                    <div class="flex flex-col gap-2 font-sans">
-                        <input type="email" placeholder="Ihre E-Mail Adresse" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" />
-                        <button onclick="showModal('Newsletter abonniert!', 'Vielen Dank für Ihre Anmeldung. Sie erhalten in Kürze eine Bestätigungs-E-Mail.')" class="bg-black text-white px-4 py-2 rounded font-bold hover:bg-gray-800 transition-colors">Jetzt abonnieren</button>
-                    </div>
+                    <i data-lucide="message-square-plus" class="w-8 h-8 text-blue-600 mx-auto mb-3"></i>
+                    <h3 class="text-xl font-bold mb-2">Sag uns deine Meinung</h3>
+                    <p class="text-sm text-gray-600 mb-4 font-sans">Fehlt dir etwas? Hast du eine Idee? Schreib uns direkt.</p>
+                    <button onclick="openFeedbackChat()" class="bg-blue-900 text-white px-4 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer">Website bewerten</button>
                 </div>
             </aside></div>`;
 
@@ -1027,8 +1002,7 @@
                             if (status !== 'approved' && !isAuthor && !isAdmin) return '';
 
                             let modBadge = '';
-                            if (status === 'checking') modBadge = '<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold animate-pulse ml-2">KI prüft...</span>';
-                            else if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
+                            if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
                             else if (status === 'rejected') modBadge = '<span class="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold ml-2">Abgelehnt</span>';
 
                             return `
@@ -1165,26 +1139,33 @@
                             <p>Hier kannst du dein Profilbild anpassen und entscheiden, ob andere deinen echten Namen oder nur deinen Benutzernamen sehen sollen. Klicke auf dein Bild, um es groß anzusehen!</p>
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Benutzername</label>
-                            <input type="text" id="profileUsername" value="${user.username}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
-                            <p class="text-xs text-gray-500 mt-1">Wenn du deinen Namen änderst, wird dieser auch bei all deinen bisherigen Kommentaren und Likes aktualisiert.</p>
-                        </div>
-
-                        <div class="pt-4 border-t border-gray-200 mt-2">
-                            <h4 class="font-bold text-gray-700 mb-4">Passwort ändern (optional)</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort</label>
-                                    <input type="password" id="profileNewPassword" placeholder="Neues Passwort..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort bestätigen</label>
-                                    <input type="password" id="profileConfirmPassword" placeholder="Passwort wiederholen..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
-                                </div>
+                        ${isFirebaseConnected ? `
+                            <div class="bg-gray-50 p-4 rounded border border-gray-200 text-sm text-gray-700">
+                                <p><span class="font-bold">Account:</span> ${user.username}</p>
+                                <p class="text-xs text-gray-500 mt-1">Benutzername/Passwort werden im Online-Modus über Firebase verwaltet.</p>
                             </div>
-                            <p class="text-xs text-gray-500 mt-2">Lass diese Felder leer, wenn du dein aktuelles Passwort behalten möchtest.</p>
-                        </div>
+                        ` : `
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Benutzername</label>
+                                <input type="text" id="profileUsername" value="${user.username}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
+                                <p class="text-xs text-gray-500 mt-1">Wenn du deinen Namen änderst, wird dieser auch bei all deinen bisherigen Kommentaren und Likes aktualisiert.</p>
+                            </div>
+
+                            <div class="pt-4 border-t border-gray-200 mt-2">
+                                <h4 class="font-bold text-gray-700 mb-4">Passwort ändern (optional)</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort</label>
+                                        <input type="password" id="profileNewPassword" placeholder="Neues Passwort..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort bestätigen</label>
+                                        <input type="password" id="profileConfirmPassword" placeholder="Passwort wiederholen..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">Lass diese Felder leer, wenn du dein aktuelles Passwort behalten möchtest.</p>
+                            </div>
+                        `}
 
                         <div class="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-200">
                             <input type="checkbox" id="profileShowRealName" ${user.showRealName ? 'checked' : ''} class="w-5 h-5 cursor-pointer text-blue-600 rounded" />
@@ -1922,21 +1903,20 @@
             let userChat = supportChats.find(c => c.userId === activeChatUser);
             
             if (!userChat) {
-                userChat = { id: 'temp', messages: [], aiEnabled: true };
+                userChat = { id: 'temp', messages: [] };
             }
 
-            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support oder der KI.</p>';
+            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support.</p>';
             
             if (userChat && userChat.messages && userChat.messages.length > 0) {
                 messagesHtml = userChat.messages.map((m, index) => {
                     const isUser = m.sender === 'user';
-                    const isAi = m.sender === 'ai';
                     const isAdmin = m.sender === 'admin';
                     
                     let bgClass = isUser ? 'bg-blue-600 text-white' : (isAdmin ? 'bg-green-600 text-white' : 'bg-white border border-gray-300 text-gray-800');
                     let alignClass = isUser ? 'justify-end' : 'justify-start';
                     let roundedClass = isUser ? 'rounded-br-none' : 'rounded-bl-none';
-                    let senderLabel = isAdmin ? 'Admin' : (isAi ? 'KI-Assistent' : '');
+                    let senderLabel = isAdmin ? 'Admin' : '';
                     
                     return `
                     <div class="flex ${alignClass} mb-3 group">
@@ -1944,16 +1924,9 @@
                             ${!isUser ? `<div class="text-[10px] text-gray-400 ml-1 mb-0.5 font-bold uppercase">${senderLabel}</div>` : ''}
                             <div class="p-3 rounded-lg ${bgClass} shadow-sm ${roundedClass} text-sm">
                                 ${m.text.replace(/\n/g, '<br/>')}
-                                ${m.isThinking ? '<span class="inline-flex space-x-1 ml-2"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span></span>' : ''}
                             </div>
                             <div class="flex items-center mt-1 gap-2 ${isUser ? 'justify-end' : 'justify-start'}">
                                 <span class="text-[9px] text-gray-400">${new Date(m.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</span>
-                                ${isAi && !m.isThinking ? `
-                                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'up')" class="text-gray-400 hover:text-green-500 ${m.rating === 'up' ? 'text-green-500' : ''}"><i data-lucide="thumbs-up" class="w-3 h-3"></i></button>
-                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'down')" class="text-gray-400 hover:text-red-500 ${m.rating === 'down' ? 'text-red-500' : ''}"><i data-lucide="thumbs-down" class="w-3 h-3"></i></button>
-                                    </div>
-                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -1969,7 +1942,7 @@
             </button>
 
             <!-- Chat Window -->
-            <div id="support-chat" class="${isSupportChatOpen ? 'flex' : 'hidden'} fixed bottom-24 right-6 w-[calc(100vw-2rem)] sm:w-96 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 flex-col h-[500px] max-h-[70vh] font-sans overflow-hidden">
+            <div id="support-chat" class="${isSupportChatOpen ? 'flex' : 'hidden'} fixed inset-0 sm:inset-auto sm:bottom-24 sm:right-6 w-full sm:w-96 bg-white border border-gray-200 sm:rounded-lg shadow-2xl z-50 flex-col h-full sm:h-[500px] sm:max-h-[70vh] font-sans overflow-hidden">
                 <!-- Header -->
                 <div class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-md z-10">
                     <div class="flex items-center gap-3">
@@ -1980,16 +1953,13 @@
                             <h3 class="font-bold leading-none mb-1 text-sm">Winterthur Times</h3>
                             <div class="flex items-center gap-2 text-xs text-blue-200">
                                 <span class="flex items-center gap-1">
-                                    <span class="w-2 h-2 rounded-full ${userChat.aiEnabled ? 'bg-green-400' : 'bg-gray-400'}"></span>
-                                    ${userChat.aiEnabled ? 'KI aktiv' : 'Live Support'}
+                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                                    Support
                                 </span>
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <button onclick="toggleChatAi(${userChat.id})" class="text-blue-200 hover:text-white p-1" title="${userChat.aiEnabled ? 'KI deaktivieren' : 'KI aktivieren'}">
-                            <i data-lucide="${userChat.aiEnabled ? 'bot' : 'user'}" class="w-5 h-5"></i>
-                        </button>
                         <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
                             <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
@@ -2002,16 +1972,7 @@
                 </div>
 
                 <!-- Input Area -->
-                <div class="bg-white border-t border-gray-200 p-3 flex flex-col gap-2 z-10">
-                    ${userChat.aiEnabled ? `
-                        <div class="flex items-center gap-2 px-1 mb-1">
-                            <span class="text-[10px] font-bold text-gray-500 uppercase">Modus:</span>
-                            <select onchange="setUserAiPreference(this.value)" class="text-[10px] border border-gray-200 rounded bg-gray-50 px-1 py-0.5 outline-none cursor-pointer">
-                                <option value="Think" ${currentUserAiPreference === 'Think' ? 'selected' : ''}>Erklären & Nachdenken</option>
-                                <option value="Response" ${currentUserAiPreference === 'Response' ? 'selected' : ''}>Direkte Antwort</option>
-                            </select>
-                        </div>
-                    ` : ''}
+                <div class="support-input-area bg-white border-t border-gray-200 p-3 flex flex-col gap-2 z-10">
                     <div class="flex gap-2 items-end">
                         <textarea id="support-input" rows="1" placeholder="Schreibe eine Nachricht..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none max-h-24 overflow-y-auto bg-gray-50 focus:bg-white transition-colors" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportMessage(); }"></textarea>
                         <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer shrink-0">
@@ -2019,7 +1980,7 @@
                         </button>
                     </div>
                     <div class="text-[9px] text-center text-gray-400 mt-1">
-                        ${userChat.aiEnabled ? 'KI kann Fehler machen. Überprüfe wichtige Informationen.' : 'Wir antworten so schnell wie möglich.'}
+                        Wir antworten so schnell wie möglich.
                     </div>
                 </div>
             </div>
@@ -2033,11 +1994,7 @@
                     <div>
                         <h2 class="text-2xl font-black uppercase font-serif mb-4">Winterthur Times</h2>
                         <p class="text-gray-400 text-sm mb-6">Unabhängiges Schulprojekt. Von der MSW.</p>
-                        <div class="flex gap-4">
-                            <span onclick="showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="facebook" class="w-5 h-5"></i></span>
-                            <span onclick="showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="twitter" class="w-5 h-5"></i></span>
-                            <span onclick="showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="instagram" class="w-5 h-5"></i></span>
-                        </div>
+                        <p class="text-gray-500 text-xs">Kontakt: Nutze den Support-Chat unten rechts.</p>
                     </div>
                     <div>
                         <h4 class="font-bold uppercase tracking-wider mb-4 text-gray-300">Ressorts</h4>
@@ -2049,8 +2006,6 @@
                         <h4 class="font-bold uppercase tracking-wider mb-4 text-gray-300">Service</h4>
                         <ul class="flex flex-col gap-2 text-sm text-gray-400">
                             <li><span onclick="setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors">Tagesbilder (Community)</span></li>
-                            <li><span onclick="showModal('Abonnements', 'Unsere Abo-Angebote werden derzeit überarbeitet.')" class="cursor-pointer hover:text-white transition-colors">Abonnements</span></li>
-                            <li><span onclick="showModal('Newsletter', 'Unsere Newsletter sind leider noch nicht verfügbar.')" class="cursor-pointer hover:text-white transition-colors">Newsletter</span></li>
                             <li><span onclick="openFeedbackChat()" class="cursor-pointer text-blue-400 font-bold hover:text-white transition-colors flex items-center gap-1"><i data-lucide="message-square-plus" class="w-4 h-4"></i> Website bewerten</span></li>
                         </ul>
                     </div>
@@ -2289,7 +2244,7 @@
                 text: text,
                 timestamp: new Date().toISOString(),
                 likes: [],
-                moderationStatus: 'checking' 
+                moderationStatus: 'approved'
             });
             
             window.saveState();
@@ -2301,8 +2256,6 @@
                 const inputRef = document.getElementById('feedbackInput');
                 if(inputRef) inputRef.focus();
             }, 50);
-
-            checkContentWithAi(text, 'feedback', newId, null);
         }
 
         window.toggleFeedbackLike = function(id) {
@@ -2526,20 +2479,6 @@
             }
         }
 
-        window.getPopularArticles = function() {
-            const items = document.querySelectorAll(".meistgelesen-item");
-            return Array.from(items).map(el => el.textContent.trim());
-        }
-
-        window.toggleChatAi = function(chatId) {
-            let chat = supportChats.find(c => c.id === chatId);
-            if (chat) {
-                chat.aiEnabled = chat.aiEnabled === false ? true : false;
-                window.saveState();
-                renderApp();
-            }
-        }
-
         window.toggleSupportChat = function() {
             isSupportChatOpen = !isSupportChatOpen;
             renderApp();
@@ -2565,7 +2504,7 @@
             
             let chat = supportChats.find(c => c.userId === activeChatUser);
             if(!chat) {
-                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: true };
+                chat = { id: Date.now(), userId: activeChatUser, messages: [] };
                 supportChats.push(chat);
             }
             
@@ -2586,62 +2525,6 @@
                 }, 50);
             };
             scrollDown();
-
-            if (chat.aiEnabled) {
-                const msgIndex = chat.messages.length;
-                chat.messages.push({
-                    sender: 'ai',
-                    text: '...',
-                    isThinking: true,
-                    timestamp: new Date().toISOString()
-                });
-                renderApp();
-                scrollDown();
-
-                const WORKER_URL = "https://askai.mikestaub705.workers.dev/";
-                
-                try {
-                    // --- KI-KONTEXT GENERIEREN ---
-                    // Wir geben der KI unsichtbar mit, wer gerade angemeldet ist und auf welcher Seite er sich befindet.
-                    const userStatus = currentUser ? `eingeloggt als '${currentUser}' (Rolle: ${getCurrentUserRole()})` : "ein Gast (nicht eingeloggt)";
-                    
-                    // Beliebte Artikel auslesen
-                    const popularArticles = window.getPopularArticles();
-                    const popularContext = popularArticles.length > 0 ? ` Die aktuell meistgelesenen Artikel sind: ${popularArticles.join(', ')}.` : "";
-                    
-                    const contextPrefix = `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'.${popularContext} Antworte hilfreich auf Basis dieser Informationen.]\nNutzerfrage: `;
-                    
-                    // Wir setzen die Variable, damit deine gewünschte Abfrage funktioniert
-                    window.isLoggedIn = !!currentUser;
-
-                    const res = await fetch(WORKER_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            message: contextPrefix + text,
-                            loggedIn: window.isLoggedIn === true,
-                            popularArticles: popularArticles
-                        })
-                    });
-                    const data = await res.json();
-                    
-                    if (chat.messages[msgIndex]) {
-                        chat.messages[msgIndex].isThinking = false;
-                        chat.messages[msgIndex].text = data.reply || "Es ist ein Fehler aufgetreten.";
-                        window.saveState();
-                        renderApp();
-                        scrollDown();
-                    }
-                } catch (e) {
-                    if (chat.messages[msgIndex]) {
-                        chat.messages[msgIndex].isThinking = false;
-                        chat.messages[msgIndex].text = "Verbindungsfehler zum Support-Dienst.";
-                        window.saveState();
-                        renderApp();
-                        scrollDown();
-                    }
-                }
-            }
         }
 
         window.adminReplySupportMessage = function(chatId) {
@@ -3071,9 +2954,12 @@
         }
 
         window.saveProfile = function() {
-            const newUsername = document.getElementById('profileUsername').value.trim();
-            const newPassword = document.getElementById('profileNewPassword').value.trim();
-            const confirmPassword = document.getElementById('profileConfirmPassword').value.trim();
+            const usernameEl = document.getElementById('profileUsername');
+            const newUsername = usernameEl ? usernameEl.value.trim() : currentUser;
+            const newPasswordEl = document.getElementById('profileNewPassword');
+            const confirmPasswordEl = document.getElementById('profileConfirmPassword');
+            const newPassword = newPasswordEl ? newPasswordEl.value.trim() : '';
+            const confirmPassword = confirmPasswordEl ? confirmPasswordEl.value.trim() : '';
             const bioText = document.getElementById('profileBio').value;
             const profilePicUrl = document.getElementById('profilePicUrl').value;
             const profilePicFile = document.getElementById('profilePicFile').files[0];
@@ -3081,6 +2967,19 @@
             
             const user = registeredUsers.find(u => u.username === currentUser);
             if (user) {
+                if (isFirebaseConnected) {
+                    // Im Online-Modus verwaltet Firebase Auth Login/Passwort. Hier speichern wir nur Profilfelder.
+                    if (newPassword !== '' || confirmPassword !== '') {
+                        showModal('Hinweis', 'Das Passwort wird im Online-Modus über Firebase verwaltet.');
+                        return;
+                    }
+                    if (newUsername !== currentUser) {
+                        showModal('Hinweis', 'Der Benutzername kann im Online-Modus aktuell nicht in der App geändert werden.');
+                        return;
+                    }
+                }
+
+                if (!isFirebaseConnected) {
                 if (newUsername !== currentUser) {
                     if (newUsername === '') {
                         showModal('Fehler', 'Der Benutzername darf nicht leer sein.');
@@ -3146,6 +3045,7 @@
 
                     currentUser = newUsername;
                 }
+                }
 
                 user.bio = bioText;
                 user.showRealName = showRealName;
@@ -3203,12 +3103,10 @@
                     isDeleted: false,
                     deletedBy: null,
                     reportedBy: [],
-                    moderationStatus: 'checking' 
+                    moderationStatus: 'approved'
                 });
                 window.saveState();
                 renderApp(); 
-                
-                checkContentWithAi(text, 'comment', newId, articleId);
             }
         }
 
