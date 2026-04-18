@@ -97,6 +97,7 @@
         let firebaseApp = null;
         let firebaseDb = null;
         let firebaseAuth = null;
+        let firebaseStorage = null;
         let isApplyingRemoteState = false;
         let saveDebounceHandle = null;
 
@@ -176,6 +177,7 @@
                 firebaseApp = firebase.initializeApp(myFirebaseConfig);
                 firebaseDb = firebase.firestore();
                 firebaseAuth = firebase.auth();
+                firebaseStorage = firebase.storage();
                 isFirebaseConnected = true;
 
                 // saveState global auf "remote speichern" umbiegen (debounced)
@@ -1142,7 +1144,25 @@
                         ${isFirebaseConnected ? `
                             <div class="bg-gray-50 p-4 rounded border border-gray-200 text-sm text-gray-700">
                                 <p><span class="font-bold">Account:</span> ${user.username}</p>
-                                <p class="text-xs text-gray-500 mt-1">Benutzername/Passwort werden im Online-Modus über Firebase verwaltet.</p>
+                                <p class="text-xs text-gray-500 mt-1">Benutzername wird im Online-Modus über Firebase verwaltet.</p>
+                            </div>
+                            <div class="pt-4 border-t border-gray-200 mt-2">
+                                <h4 class="font-bold text-gray-700 mb-4">Passwort ändern (optional)</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Aktuelles Passwort <span class="text-red-500">*</span></label>
+                                        <input type="password" id="profileCurrentPassword" placeholder="Aktuelles Passwort zur Bestätigung..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort</label>
+                                        <input type="password" id="profileNewPassword" placeholder="Neues Passwort..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort bestätigen</label>
+                                        <input type="password" id="profileConfirmPassword" placeholder="Passwort wiederholen..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">Lass diese Felder leer, wenn du dein Passwort behalten möchtest. Das Passwort wird sicher bei Firebase gespeichert.</p>
                             </div>
                         ` : `
                             <div>
@@ -2956,118 +2976,197 @@
         window.saveProfile = function() {
             const usernameEl = document.getElementById('profileUsername');
             const newUsername = usernameEl ? usernameEl.value.trim() : currentUser;
+            const currentPasswordEl = document.getElementById('profileCurrentPassword');
             const newPasswordEl = document.getElementById('profileNewPassword');
             const confirmPasswordEl = document.getElementById('profileConfirmPassword');
+            const currentPassword = currentPasswordEl ? currentPasswordEl.value.trim() : '';
             const newPassword = newPasswordEl ? newPasswordEl.value.trim() : '';
             const confirmPassword = confirmPasswordEl ? confirmPasswordEl.value.trim() : '';
             const bioText = document.getElementById('profileBio').value;
             const profilePicUrl = document.getElementById('profilePicUrl').value;
-            const profilePicFile = document.getElementById('profilePicFile').files[0];
+            const profilePicFile = document.getElementById('profilePicFile') ? document.getElementById('profilePicFile').files[0] : null;
             const showRealName = document.getElementById('profileShowRealName').checked;
             
             const user = registeredUsers.find(u => u.username === currentUser);
-            if (user) {
-                if (isFirebaseConnected) {
-                    // Im Online-Modus verwaltet Firebase Auth Login/Passwort. Hier speichern wir nur Profilfelder.
-                    if (newPassword !== '' || confirmPassword !== '') {
-                        showModal('Hinweis', 'Das Passwort wird im Online-Modus über Firebase verwaltet.');
-                        return;
-                    }
-                    if (newUsername !== currentUser) {
-                        showModal('Hinweis', 'Der Benutzername kann im Online-Modus aktuell nicht in der App geändert werden.');
-                        return;
-                    }
-                }
+            if (!user) return;
 
-                if (!isFirebaseConnected) {
-                if (newUsername !== currentUser) {
-                    if (newUsername === '') {
-                        showModal('Fehler', 'Der Benutzername darf nicht leer sein.');
-                        return;
-                    }
-                    if (registeredUsers.some(u => u.username === newUsername)) {
-                        showModal('Fehler', 'Dieser Benutzername ist leider schon vergeben.');
-                        return;
-                    }
-                }
+            // --- FIREBASE MODUS ---
+            if (isFirebaseConnected) {
+                const wantsPasswordChange = newPassword !== '' || confirmPassword !== '';
 
-                if (newPassword !== '') {
+                // Passwort-Validierung
+                if (wantsPasswordChange) {
+                    if (!currentPassword) {
+                        showModal('Fehler', 'Bitte gib dein aktuelles Passwort ein, um das Passwort zu ändern.');
+                        return;
+                    }
+                    if (newPassword.length < 6) {
+                        showModal('Fehler', 'Das neue Passwort muss mindestens 6 Zeichen lang sein.');
+                        return;
+                    }
                     if (newPassword !== confirmPassword) {
                         showModal('Fehler', 'Die neuen Passwörter stimmen nicht überein.');
                         return;
                     }
-                    user.password = newPassword;
                 }
 
-                if (newUsername !== currentUser) {
-                    const oldUsername = currentUser;
-                    user.username = newUsername;
-
-                    articles.forEach(a => {
-                        const viewIdx = a.views.indexOf(oldUsername);
-                        if (viewIdx > -1) a.views[viewIdx] = newUsername;
-
-                        const likeIdx = a.likes.indexOf(oldUsername);
-                        if (likeIdx > -1) a.likes[likeIdx] = newUsername;
-
-                        a.comments.forEach(c => {
-                            if (c.username === oldUsername) c.username = newUsername;
-                            
-                            const cLikeIdx = c.likes.indexOf(oldUsername);
-                            if (cLikeIdx > -1) c.likes[cLikeIdx] = newUsername;
-
-                            if (c.reportedBy) {
-                                const rIdx = c.reportedBy.indexOf(oldUsername);
-                                if (rIdx > -1) c.reportedBy[rIdx] = newUsername;
-                            }
-                        });
-                    });
-
-                    communityImages.forEach(img => {
-                        if (img.uploader === oldUsername) img.uploader = newUsername;
-                        if (img.likes) {
-                            const imgLikeIdx = img.likes.indexOf(oldUsername);
-                            if (imgLikeIdx > -1) img.likes[imgLikeIdx] = newUsername;
-                        }
-                    });
-
-                    siteFeedbacks.forEach(fb => {
-                        if (fb.username === oldUsername) fb.username = newUsername;
-                        if (fb.likes) {
-                            const fbLikeIdx = fb.likes.indexOf(oldUsername);
-                            if (fbLikeIdx > -1) fb.likes[fbLikeIdx] = newUsername;
-                        }
-                    });
-
-                    supportChats.forEach(chat => {
-                        if (chat.userId === oldUsername) chat.userId = newUsername;
-                    });
-
-                    currentUser = newUsername;
-                }
-                }
-
+                // Profildaten lokal aktualisieren (Bio, showRealName)
                 user.bio = bioText;
                 user.showRealName = showRealName;
 
-                const applySave = () => {
-                    window.saveState();
-                    showModal('Erfolgreich', 'Dein Profil wurde gespeichert!');
+                const finishSave = (picUrl) => {
+                    if (picUrl !== null) user.profilePicUrl = picUrl;
+
+                    const doPasswordChange = () => {
+                        if (!wantsPasswordChange) {
+                            window.saveState();
+                            showModal('Erfolgreich', 'Dein Profil wurde gespeichert!');
+                            renderApp();
+                            return;
+                        }
+                        const fbUser = firebaseAuth.currentUser;
+                        if (!fbUser) {
+                            showModal('Fehler', 'Kein angemeldeter Firebase-Benutzer gefunden.');
+                            return;
+                        }
+                        // Reauthentifizierung erforderlich vor Passwortänderung
+                        const credential = firebase.auth.EmailAuthProvider.credential(fbUser.email, currentPassword);
+                        fbUser.reauthenticateWithCredential(credential)
+                            .then(() => fbUser.updatePassword(newPassword))
+                            .then(() => {
+                                window.saveState();
+                                showModal('Erfolgreich', 'Dein Profil und Passwort wurden gespeichert!');
+                                renderApp();
+                            })
+                            .catch((err) => {
+                                console.error('Passwort ändern fehlgeschlagen:', err);
+                                if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                                    showModal('Fehler', 'Das aktuelle Passwort ist falsch. Bitte versuche es erneut.');
+                                } else {
+                                    showModal('Fehler', 'Passwortänderung fehlgeschlagen: ' + (err.message || err.code));
+                                }
+                            });
+                    };
+
+                    doPasswordChange();
                 };
 
-                if (profilePicFile) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        user.profilePicUrl = e.target.result;
-                        applySave();
-                    };
-                    reader.readAsDataURL(profilePicFile);
+                // Profilbild: Datei zu Firebase Storage hochladen
+                if (profilePicFile && firebaseStorage) {
+                    const storageRef = firebaseStorage.ref('profilePics/' + currentUser + '_' + Date.now());
+                    showModal('Wird hochgeladen...', 'Dein Profilbild wird hochgeladen. Bitte warte einen Moment.');
+                    storageRef.put(profilePicFile)
+                        .then(snapshot => snapshot.ref.getDownloadURL())
+                        .then(downloadUrl => {
+                            currentModal = null;
+                            finishSave(downloadUrl);
+                        })
+                        .catch(err => {
+                            console.error('Firebase Storage Upload fehlgeschlagen:', err);
+                            // Fallback: als Base64 speichern
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                currentModal = null;
+                                finishSave(e.target.result);
+                            };
+                            reader.readAsDataURL(profilePicFile);
+                        });
+                    return;
+                } else if (profilePicUrl.trim() !== '') {
+                    finishSave(profilePicUrl.trim());
                 } else {
-                    if (profilePicUrl.trim() !== '') {
-                        user.profilePicUrl = profilePicUrl.trim();
-                    }
-                    applySave();
+                    finishSave(null);
                 }
+                return;
+            }
+
+            // --- OFFLINE MODUS (ohne Firebase) ---
+            if (newUsername !== currentUser) {
+                if (newUsername === '') {
+                    showModal('Fehler', 'Der Benutzername darf nicht leer sein.');
+                    return;
+                }
+                if (registeredUsers.some(u => u.username === newUsername)) {
+                    showModal('Fehler', 'Dieser Benutzername ist leider schon vergeben.');
+                    return;
+                }
+            }
+
+            if (newPassword !== '') {
+                if (newPassword !== confirmPassword) {
+                    showModal('Fehler', 'Die neuen Passwörter stimmen nicht überein.');
+                    return;
+                }
+                user.password = newPassword;
+            }
+
+            if (newUsername !== currentUser) {
+                const oldUsername = currentUser;
+                user.username = newUsername;
+
+                articles.forEach(a => {
+                    const viewIdx = a.views.indexOf(oldUsername);
+                    if (viewIdx > -1) a.views[viewIdx] = newUsername;
+
+                    const likeIdx = a.likes.indexOf(oldUsername);
+                    if (likeIdx > -1) a.likes[likeIdx] = newUsername;
+
+                    a.comments.forEach(c => {
+                        if (c.username === oldUsername) c.username = newUsername;
+                        
+                        const cLikeIdx = c.likes.indexOf(oldUsername);
+                        if (cLikeIdx > -1) c.likes[cLikeIdx] = newUsername;
+
+                        if (c.reportedBy) {
+                            const rIdx = c.reportedBy.indexOf(oldUsername);
+                            if (rIdx > -1) c.reportedBy[rIdx] = newUsername;
+                        }
+                    });
+                });
+
+                communityImages.forEach(img => {
+                    if (img.uploader === oldUsername) img.uploader = newUsername;
+                    if (img.likes) {
+                        const imgLikeIdx = img.likes.indexOf(oldUsername);
+                        if (imgLikeIdx > -1) img.likes[imgLikeIdx] = newUsername;
+                    }
+                });
+
+                siteFeedbacks.forEach(fb => {
+                    if (fb.username === oldUsername) fb.username = newUsername;
+                    if (fb.likes) {
+                        const fbLikeIdx = fb.likes.indexOf(oldUsername);
+                        if (fbLikeIdx > -1) fb.likes[fbLikeIdx] = newUsername;
+                    }
+                });
+
+                supportChats.forEach(chat => {
+                    if (chat.userId === oldUsername) chat.userId = newUsername;
+                });
+
+                currentUser = newUsername;
+            }
+
+            user.bio = bioText;
+            user.showRealName = showRealName;
+
+            const applySave = () => {
+                window.saveState();
+                showModal('Erfolgreich', 'Dein Profil wurde gespeichert!');
+            };
+
+            if (profilePicFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    user.profilePicUrl = e.target.result;
+                    applySave();
+                };
+                reader.readAsDataURL(profilePicFile);
+            } else {
+                if (profilePicUrl.trim() !== '') {
+                    user.profilePicUrl = profilePicUrl.trim();
+                }
+                applySave();
             }
         }
         
@@ -3471,4 +3570,3 @@
         fetchWeather();
         initFirebase();
         renderApp();
-
