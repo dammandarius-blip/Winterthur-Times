@@ -14,3 +14,6 @@ body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
         }
         .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
 
+        /* Better mobile support for fixed UI (e.g. iPhone safe-area) */
+        .support-input-area { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+
