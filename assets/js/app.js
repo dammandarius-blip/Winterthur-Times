@@ -1,79 +1,10 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Winterthur Times</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Three.js (für 3D Logo) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            -webkit-tap-highlight-color: transparent;
-        }
-        h1, h2, h3, .font-serif {
-            font-family: 'Merriweather', serif;
-        }
-        .animate-slide-in {
-            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-fade-in {
-            animation: fadeIn 0.2s ease-out forwards;
-        }
-        @keyframes slideIn {
-            from { transform: translateX(-100%); }
-            to { transform: translateX(0); }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Verstecke Scrollbars, behalte aber Scroll-Funktion */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
-</head>
-<body class="text-gray-900 overflow-x-hidden">
-
-    <div id="app"></div>
-
-    <!-- App Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { 
-            getAuth, signInAnonymously, onAuthStateChanged, 
-            signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-            updateProfile, signOut, signInWithCustomToken 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, doc, setDoc, getDoc, onSnapshot, 
-            writeBatch, serverTimestamp 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- GATEKEEPER KONFIGURATION ---
+// --- GATEKEEPER KONFIGURATION ---
         const ENABLE_STUDENT_GATEKEEPER = false;
         let hasPassedGatekeeper = !ENABLE_STUDENT_GATEKEEPER;
 
-        // Firebase Konfiguration
+        // =======================================================================
+        // 🔴 ACHTUNG NETLIFY-NUTZER: FIREBASE KONFIGURATION 🔴
+        // =======================================================================
         let myFirebaseConfig = {
             apiKey: "AIzaSyDiYFdcmwniMpAuFB_N2kAkD9AIgHhgaVU",
             authDomain: "winterthurtimes.firebaseapp.com",
@@ -84,7 +15,7 @@
         };
 
         window.saveState = async function() {
-            // Wird überschrieben, wenn Firebase lädt.
+            // Dies ist ein Platzhalter. Er wird überschrieben, sobald Firebase bereit ist.
         };
 
         // --- DATEN ---
@@ -158,14 +89,19 @@
         let adminSelectedChatId = null;
         
         let isFirebaseConnected = false;
+
         let firebaseApp = null;
         let firebaseDb = null;
         let firebaseAuth = null;
         let isApplyingRemoteState = false;
         let saveDebounceHandle = null;
 
-        // Firebase Refs
-        let articlesDocRef, chatsDocRef, usersDocRef;
+        function isFirebaseConfigured() {
+            if (!myFirebaseConfig) return false;
+            if (!myFirebaseConfig.apiKey || myFirebaseConfig.apiKey === "DEIN_API_KEY_HIER") return false;
+            if (!myFirebaseConfig.projectId || myFirebaseConfig.projectId === "DEIN_PROJEKT_ID") return false;
+            return true;
+        }
 
         function sanitizeUsersForRemote(users) {
             return (users || []).map(u => ({
@@ -183,9 +119,9 @@
         }
 
         async function seedDocIfMissing(docRef, seedData) {
-            const snap = await getDoc(docRef);
-            if (!snap.exists()) {
-                await setDoc(docRef, seedData);
+            const snap = await docRef.get();
+            if (!snap.exists) {
+                await docRef.set(seedData);
             }
         }
 
@@ -193,10 +129,15 @@
             if (!isFirebaseConnected || !firebaseDb) return;
             if (isApplyingRemoteState) return;
 
-            const batch = writeBatch(firebaseDb);
-            const now = serverTimestamp();
+            const now = firebase.firestore.FieldValue.serverTimestamp();
+            const dataCol = firebaseDb.collection('data');
 
-            batch.set(articlesDocRef, {
+            const articlesDoc = dataCol.doc('articles');
+            const chatsDoc = dataCol.doc('chats');
+            const usersDoc = dataCol.doc('users');
+
+            const batch = firebaseDb.batch();
+            batch.set(articlesDoc, {
                 articles: articles,
                 authors: authors,
                 categories: categories,
@@ -204,9 +145,8 @@
                 siteFeedbacks: siteFeedbacks,
                 updatedAt: now
             }, { merge: true });
-            
-            batch.set(chatsDocRef, { supportChats: supportChats, updatedAt: now }, { merge: true });
-            batch.set(usersDocRef, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: now }, { merge: true });
+            batch.set(chatsDoc, { supportChats: supportChats, updatedAt: now }, { merge: true });
+            batch.set(usersDoc, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: now }, { merge: true });
 
             await batch.commit();
         }
@@ -221,41 +161,38 @@
         }
 
         async function initFirebase() {
+            if (!isFirebaseConfigured()) return;
+            if (!window.firebase) {
+                console.warn('Firebase SDK nicht geladen.');
+                return;
+            }
+
             try {
-                // Konfiguration initialisieren (Umgebung oder lokal)
-                const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
-                const envAppId = typeof __app_id !== 'undefined' ? __app_id : 'winterthurtimes-app';
-
-                firebaseApp = initializeApp(config);
-                firebaseDb = getFirestore(firebaseApp);
-                firebaseAuth = getAuth(firebaseApp);
-                
-                // MANDAT: Zuerst Auth!
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(firebaseAuth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(firebaseAuth);
-                }
-
-                // Dokument-Referenzen (Regel 1 konform)
-                articlesDocRef = doc(firebaseDb, 'artifacts', envAppId, 'public', 'data', 'shared_data', 'articles');
-                chatsDocRef = doc(firebaseDb, 'artifacts', envAppId, 'public', 'data', 'shared_data', 'chats');
-                usersDocRef = doc(firebaseDb, 'artifacts', envAppId, 'public', 'data', 'shared_data', 'users');
-
+                firebaseApp = firebase.initializeApp(myFirebaseConfig);
+                firebaseDb = firebase.firestore();
+                firebaseAuth = firebase.auth();
                 isFirebaseConnected = true;
+
                 window.saveState = scheduleRemoteSave;
 
-                // Initiales Seeding
-                await seedDocIfMissing(articlesDocRef, {
-                    articles: articles, authors: authors, categories: categories,
-                    communityImages: communityImages, siteFeedbacks: siteFeedbacks, updatedAt: serverTimestamp()
-                });
-                await seedDocIfMissing(chatsDocRef, { supportChats: supportChats, updatedAt: serverTimestamp() });
-                await seedDocIfMissing(usersDocRef, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: serverTimestamp() });
+                const dataCol = firebaseDb.collection('data');
+                const articlesDoc = dataCol.doc('articles');
+                const chatsDoc = dataCol.doc('chats');
+                const usersDoc = dataCol.doc('users');
 
-                // Snapshot Listeners
-                onSnapshot(articlesDocRef, (snap) => {
-                    if (!snap.exists() || (snap.metadata && snap.metadata.hasPendingWrites)) return;
+                await seedDocIfMissing(articlesDoc, {
+                    articles: articles,
+                    authors: authors,
+                    categories: categories,
+                    communityImages: communityImages,
+                    siteFeedbacks: siteFeedbacks,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await seedDocIfMissing(chatsDoc, { supportChats: supportChats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await seedDocIfMissing(usersDoc, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+                articlesDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+                    if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
                     const data = snap.data() || {};
                     isApplyingRemoteState = true;
                     try {
@@ -268,28 +205,33 @@
                         isApplyingRemoteState = false;
                     }
                     renderApp();
-                }, err => console.error(err));
+                });
 
-                onSnapshot(chatsDocRef, (snap) => {
-                    if (!snap.exists() || (snap.metadata && snap.metadata.hasPendingWrites)) return;
+                chatsDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+                    if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
                     const data = snap.data() || {};
                     isApplyingRemoteState = true;
-                    if (Array.isArray(data.supportChats)) supportChats = data.supportChats;
-                    isApplyingRemoteState = false;
+                    try {
+                        if (Array.isArray(data.supportChats)) supportChats = data.supportChats;
+                    } finally {
+                        isApplyingRemoteState = false;
+                    }
                     renderApp();
-                }, err => console.error(err));
+                });
 
-                onSnapshot(usersDocRef, (snap) => {
-                    if (!snap.exists() || (snap.metadata && snap.metadata.hasPendingWrites)) return;
+                usersDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+                    if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
                     const data = snap.data() || {};
                     isApplyingRemoteState = true;
-                    if (Array.isArray(data.registeredUsers)) registeredUsers = data.registeredUsers;
-                    isApplyingRemoteState = false;
+                    try {
+                        if (Array.isArray(data.registeredUsers)) registeredUsers = data.registeredUsers;
+                    } finally {
+                        isApplyingRemoteState = false;
+                    }
                     renderApp();
-                }, err => console.error(err));
+                });
 
-                // Auth Listener
-                onAuthStateChanged(firebaseAuth, (user) => {
+                firebaseAuth.onAuthStateChanged((user) => {
                     if (!user) {
                         currentUser = null;
                         supportUser = 'Gast-' + sessionId;
@@ -303,33 +245,48 @@
 
                     const profile = registeredUsers.find(u => u.username === name) || null;
                     if (profile && (profile.isBanned || profile.isDeleted)) {
-                        const msg = profile.isDeleted ? "Dein Account wurde gelöscht." : "Dein Account wurde gesperrt.";
+                        const msg = profile.isDeleted
+                            ? "Dein Account wurde gelöscht. Bitte wende dich an den Support."
+                            : "Dein Account wurde gesperrt. Bitte wende dich an den Support.";
                         showModal('Zugriff verweigert', msg);
-                        signOut(firebaseAuth).catch(() => {});
+                        firebaseAuth.signOut().catch(() => {});
                         return;
                     }
 
                     if (!profile) {
                         registeredUsers.push({
-                            username: name, firstName: "", lastName: "", email: user.email || "", bio: "",
-                            profilePicUrl: "", showRealName: false, isBanned: false, isDeleted: false, role: "user"
+                            username: name,
+                            firstName: "",
+                            lastName: "",
+                            email: user.email || "",
+                            bio: "",
+                            profilePicUrl: "",
+                            showRealName: false,
+                            isBanned: false,
+                            isDeleted: false,
+                            role: "user"
                         });
                         window.saveState();
                     }
 
-                    if (pendingChatOpen) { isSupportChatOpen = true; pendingChatOpen = false; }
-                    if (pendingView) { setView(pendingView); pendingView = null; } 
-                    else { renderApp(); }
+                    if (pendingChatOpen) {
+                        isSupportChatOpen = true;
+                        pendingChatOpen = false;
+                    }
+                    if (pendingView) {
+                        setView(pendingView);
+                        pendingView = null;
+                    } else {
+                        renderApp();
+                    }
                 });
 
-                console.log('Firebase erfolgreich verbunden.');
             } catch (err) {
                 console.error('Firebase Init fehlgeschlagen:', err);
                 isFirebaseConnected = false;
             }
         }
 
-        // --- 3D LOGO INTEGRATION (THREE.JS) ---
         let logoRenderer, logoScene, logoCamera, logoInteractiveGroup, logoGroup;
         let targetRotationX = 0;
 
@@ -393,7 +350,6 @@
             logoRenderer.render(logoScene, logoCamera);
         }
 
-        // --- HILFSFUNKTIONEN ---
         function getFallbackImage(category) {
             const fallbacks = {
                 "Politik": "https://images.unsplash.com/photo-1523995462485-3d171b5c8fa9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
@@ -450,7 +406,7 @@
             let cursorClass = '';
             
             if (clickable && user && user.profilePicUrl && user.profilePicUrl.trim() !== '') {
-                clickAttr = `onclick="window.showImageModal('${user.profilePicUrl}')"`;
+                clickAttr = `onclick="showImageModal('${user.profilePicUrl}')"`;
                 cursorClass = 'cursor-pointer hover:opacity-80 transition-opacity';
             }
 
@@ -554,9 +510,8 @@
             }
         }
 
-        // --- KI MODERATIONS LOGIK ---
         window.checkContentWithAi = async function(text, type, id, parentId) {
-            window.finalizeModeration(type, id, parentId, 'approved');
+            finalizeModeration(type, id, parentId, 'approved');
         };
 
         window.finalizeModeration = function(type, id, parentId, status) {
@@ -576,7 +531,7 @@
 
         window.adminApproveContent = function(type, id, parentId) {
             if (!hasAdminAccess()) return;
-            window.finalizeModeration(type, id, parentId, 'approved');
+            finalizeModeration(type, id, parentId, 'approved');
         };
         
         window.adminRejectContent = function(type, id, parentId) {
@@ -598,36 +553,36 @@
             renderApp();
         };
 
-        // --- RENDER FUNKTIONEN ---
         function renderTopBar() {
-            const role = getCurrentUserRole();
-            let dashboardIcon = hasAdminAccess() ? 'shield' : 'pen-tool';
-            let dashboardLabel = hasAdminAccess() ? 'Admin' : 'Redaktion';
+            const dashboardIcon = hasAdminAccess() ? 'shield' : 'pen-tool';
+            const dashboardLabel = hasAdminAccess() ? 'Admin' : 'Redaktion';
 
             return `
-            <div class="bg-black text-white text-xs py-2 px-2 sm:px-4 flex justify-between items-center font-sans tracking-wide">
-                <div class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar whitespace-nowrap hidden md:flex">
-                    <span onclick="window.showModal('Abonnements', 'Unsere Abo-Angebote werden derzeit überarbeitet.')" class="cursor-pointer hover:text-gray-300 transition-colors">Abo</span>
-                    <span onclick="window.showModal('E-Paper', 'Das E-Paper ist in dieser Demo-Version noch nicht verfügbar.')" class="cursor-pointer hover:text-gray-300 transition-colors">E-Paper</span>
-                    <span onclick="window.showModal('Newsletter', 'Die Newsletter sind noch nicht verfügbar.')" class="cursor-pointer hover:text-gray-300 transition-colors">Newsletter</span>
+            <div class="bg-black text-white text-xs py-1.5 px-3 sm:px-4 flex justify-between items-center font-sans tracking-wide">
+                <div class="flex gap-3 sm:gap-4">
+                    <span onclick="showModal('Abonnements', 'Unsere Abo-Angebote werden derzeit überarbeitet. Bitte schauen Sie später wieder vorbei!')" class="cursor-pointer hover:text-gray-300 transition-colors hidden sm:block">Abo</span>
+                    <span onclick="showModal('E-Paper', 'Das E-Paper ist in dieser Demo-Version noch nicht verfügbar.')" class="cursor-pointer hover:text-gray-300 transition-colors hidden sm:block">E-Paper</span>
+                    <span onclick="showModal('Newsletter', 'Die Newsletter sind noch nicht verfügbar.')" class="cursor-pointer hover:text-gray-300 transition-colors hidden sm:block">Newsletter</span>
                 </div>
-                <div class="flex gap-2 sm:gap-4 items-center w-full md:w-auto justify-end flex-wrap">
-                    <span onclick="window.setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer text-green-400 font-bold hover:text-green-300 transition-colors flex items-center gap-1 border-r border-gray-600 pr-3 sm:pr-4">
-                        <i data-lucide="camera" class="w-3 h-3"></i> <span class="hidden sm:inline">Tagesbilder</span>
+                <div class="flex gap-3 sm:gap-4 items-center ml-auto">
+                    <span onclick="setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer text-green-400 font-bold hover:text-green-300 transition-colors flex items-center gap-1 ${hasAuthorAccess() ? 'border-r border-gray-600 pr-3 sm:pr-4' : ''}">
+                        <i data-lucide="camera" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">Tagesbilder</span>
                     </span>
                     ${hasAuthorAccess() ? `
-                        <span onclick="adminTab='articles'; window.setView('admin-dashboard')" class="cursor-pointer text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1 border-r border-gray-600 pr-3 sm:pr-4">
-                            <i data-lucide="${dashboardIcon}" class="w-3 h-3"></i> <span class="hidden sm:inline">${dashboardLabel}</span>
+                        <span onclick="adminTab='articles'; setView('admin-dashboard')" class="cursor-pointer text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1 border-r border-gray-600 pr-3 sm:pr-4">
+                            <i data-lucide="${dashboardIcon}" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline">${dashboardLabel}</span>
                         </span>
                     ` : ''}
                     ${currentUser ? `
-                        <span class="cursor-pointer font-bold text-gray-300 hover:text-white transition-colors flex items-center gap-1 truncate max-w-[100px] sm:max-w-none" onclick="window.setView('profile')" title="Zum Profil"><i data-lucide="user" class="w-3 h-3"></i> ${getDisplayName(currentUser)}</span>
-                        <span class="cursor-pointer hover:text-red-300 text-red-400 transition-colors ml-1 sm:ml-2 flex items-center gap-1" onclick="window.handleUserLogout()" title="Abmelden">
-                            <i data-lucide="log-out" class="w-3 h-3 md:hidden"></i><span class="hidden md:inline">Abmelden</span>
+                        <span class="cursor-pointer font-bold text-gray-300 hover:text-white transition-colors flex items-center gap-1 truncate max-w-[120px] sm:max-w-xs" onclick="setView('profile')" title="Zum Profil">
+                            <i data-lucide="user" class="w-3.5 h-3.5 shrink-0"></i> <span class="truncate">${getDisplayName(currentUser)}</span>
+                        </span>
+                        <span class="cursor-pointer hover:text-white transition-colors ml-1 sm:ml-2" onclick="handleUserLogout()" title="Abmelden">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5 sm:hidden"></i><span class="hidden sm:inline">Abmelden</span>
                         </span>
                     ` : `
-                        <span class="cursor-pointer hover:text-gray-300 transition-colors flex items-center gap-1" onclick="window.showUserLogin()">
-                            <i data-lucide="user" class="w-3 h-3"></i> Login
+                        <span class="cursor-pointer hover:text-gray-300 transition-colors flex items-center gap-1" onclick="showUserLogin()">
+                            <i data-lucide="user" class="w-3.5 h-3.5"></i> Login
                         </span>
                     `}
                 </div>
@@ -640,26 +595,23 @@
 
             return `
             <header class="border-b border-gray-300 sticky top-0 bg-[#fcfbf9] z-40 shadow-sm">
-                <div class="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
-                    <div class="flex items-center gap-2 sm:gap-4 w-1/4 sm:w-1/3">
-                        <div id="header-3d-logo" class="w-10 h-10 sm:w-16 sm:h-16 shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="window.setView('home')" title="Zur Startseite"></div>
-                        <button onclick="window.toggleMenu()" class="p-2 hover:bg-gray-200 rounded-full transition-colors cursor-pointer text-gray-700">
+                <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-1 sm:gap-4 flex-1">
+                        <div id="header-3d-logo" class="w-10 h-10 sm:w-16 sm:h-16 shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="setView('home')" title="Zur Startseite"></div>
+                        <button onclick="toggleMenu()" class="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
                             <i data-lucide="menu" class="w-5 h-5 sm:w-6 sm:h-6"></i>
                         </button>
-                        <button onclick="window.toggleSearch()" class="p-2 hover:bg-gray-200 rounded-full transition-colors hidden sm:block cursor-pointer text-gray-700">
+                        <button onclick="toggleSearch()" class="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
                             <i data-lucide="search" class="w-5 h-5 sm:w-6 sm:h-6"></i>
                         </button>
                     </div>
-                    <div class="w-2/4 sm:w-1/3 text-center">
-                        <h1 onclick="window.setView('home')" class="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter uppercase font-serif cursor-pointer hover:text-blue-900 transition-colors leading-none">
-                            Winterthur<br class="sm:hidden" /> Times
+                    <div class="flex-none text-center px-2">
+                        <h1 onclick="setView('home')" class="text-2xl sm:text-4xl md:text-5xl font-black tracking-tighter uppercase font-serif cursor-pointer hover:text-blue-900 transition-colors">
+                            Winterthur Times
                         </h1>
                     </div>
-                    <div class="w-1/4 sm:w-1/3 flex justify-end items-center gap-3 sm:gap-4 text-xs sm:text-sm font-sans text-gray-600">
-                        <button onclick="window.toggleSearch()" class="p-2 hover:bg-gray-200 rounded-full transition-colors cursor-pointer sm:hidden text-gray-700">
-                            <i data-lucide="search" class="w-5 h-5"></i>
-                        </button>
-                        <div class="hidden lg:flex flex-col items-end">
+                    <div class="flex-1 flex justify-end items-center gap-4 text-sm font-sans text-gray-600">
+                        <div class="hidden md:flex flex-col items-end">
                             <span class="font-semibold text-gray-900">${currentDate}</span>
                             <div class="flex items-center gap-1" title="Aktuelles Wetter">
                                 <i data-lucide="${currentWeather.icon}" class="w-4 h-4"></i>
@@ -670,9 +622,9 @@
                 </div>
                 ${isSearchOpen ? `
                 <div class="bg-gray-100 border-t border-gray-300 px-4 py-3 flex justify-center animate-fade-in shadow-inner">
-                    <div class="max-w-2xl w-full flex flex-col sm:flex-row relative gap-2 sm:gap-0">
-                        <input type="text" id="searchInput" value="${searchQuery}" onkeypress="window.handleSearch(event)" placeholder="Nach Artikeln, Stichworten suchen..." class="w-full px-4 py-2 border border-gray-300 sm:rounded-l rounded focus:outline-none focus:border-blue-500 font-sans shadow-sm" />
-                        <button onclick="window.executeSearch()" class="bg-blue-900 text-white px-6 py-2 sm:rounded-r rounded font-bold hover:bg-blue-800 transition-colors shadow-sm cursor-pointer w-full sm:w-auto">Suchen</button>
+                    <div class="max-w-2xl w-full flex relative">
+                        <input type="text" id="searchInput" value="${searchQuery}" onkeypress="handleSearch(event)" placeholder="Nach Artikeln, Stichworten suchen..." class="w-full px-4 py-2 border border-gray-300 rounded-l focus:outline-none focus:border-blue-500 font-sans shadow-sm" />
+                        <button onclick="executeSearch()" class="bg-blue-900 text-white px-6 py-2 rounded-r font-bold hover:bg-blue-800 transition-colors shadow-sm cursor-pointer">Suchen</button>
                     </div>
                 </div>
                 ` : ''}
@@ -702,30 +654,30 @@
             const renderImageGrid = (images) => {
                 if (images.length === 0) return '<p class="text-gray-500 italic text-sm mb-8">In diesem Zeitraum wurden noch keine Bilder hochgeladen.</p>';
                 return `
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 mb-12">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
                     ${images.map(img => {
                         const isLiked = currentUser && img.likes && img.likes.includes(currentUser);
                         return `
-                        <div class="relative group cursor-pointer aspect-square bg-gray-100 border border-gray-200 rounded overflow-hidden ${img.isDeleted ? 'opacity-60 grayscale' : ''}" onclick="window.showImageModal('${img.url}')">
+                        <div class="relative group cursor-pointer aspect-square bg-gray-100 border border-gray-200 rounded overflow-hidden ${img.isDeleted ? 'opacity-60 grayscale' : ''}" onclick="showImageModal('${img.url}')">
                             <img src="${img.url}" alt="Community Bild" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             ${img.isDeleted ? '<div class="absolute top-2 left-2 bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded z-20 uppercase">Gelöscht</div>' : ''}
-                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 sm:p-3 flex items-end justify-between pointer-events-none">
+                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 flex items-end justify-between pointer-events-none">
                                 <div class="flex items-center gap-2">
-                                    ${getUserAvatar(img.uploader, 'w-5 h-5 sm:w-6 sm:h-6', 'w-3 h-3', false)}
+                                    ${getUserAvatar(img.uploader, 'w-6 h-6', 'w-3 h-3', false)}
                                     <div class="flex flex-col">
-                                        <span class="text-white font-bold text-[10px] sm:text-xs line-clamp-1">${getDisplayName(img.uploader)}</span>
-                                        <span class="text-gray-300 text-[8px] sm:text-[10px] time-ago-display" data-timestamp="${img.timestamp}">${getTimeAgo(img.timestamp)}</span>
+                                        <span class="text-white font-bold text-xs line-clamp-1">${getDisplayName(img.uploader)}</span>
+                                        <span class="text-gray-300 text-[10px] time-ago-display" data-timestamp="${img.timestamp}">${getTimeAgo(img.timestamp)}</span>
                                     </div>
                                 </div>
-                                <button onclick="event.stopPropagation(); window.toggleCommunityImageLike(${img.id})" class="pointer-events-auto flex items-center gap-1 ${isLiked ? 'text-red-500' : 'text-white'} hover:scale-110 transition-transform cursor-pointer">
-                                    <i data-lucide="heart" class="w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-current text-red-500' : 'drop-shadow-md'}"></i>
-                                    <span class="text-[10px] sm:text-xs font-bold drop-shadow-md">${img.likes ? img.likes.length : 0}</span>
+                                <button onclick="event.stopPropagation(); toggleCommunityImageLike(${img.id})" class="pointer-events-auto flex items-center gap-1 ${isLiked ? 'text-red-500' : 'text-white'} hover:scale-110 transition-transform cursor-pointer">
+                                    <i data-lucide="heart" class="w-5 h-5 ${isLiked ? 'fill-current text-red-500' : 'drop-shadow-md'}"></i>
+                                    <span class="text-xs font-bold drop-shadow-md">${img.likes ? img.likes.length : 0}</span>
                                 </button>
                             </div>
                             ${img.isDeleted && isSuperAdmin ? `
-                                <button onclick="event.stopPropagation(); window.restoreCommunityImage(${img.id})" class="absolute top-2 right-2 bg-green-600 text-white p-1.5 rounded hover:bg-green-700 shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" title="Bild wiederherstellen"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                                <button onclick="event.stopPropagation(); restoreCommunityImage(${img.id})" class="absolute top-2 right-2 bg-green-600 text-white p-1.5 rounded hover:bg-green-700 shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" title="Bild wiederherstellen"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
                             ` : ((hasAdminAccess() || img.uploader === currentUser) && !img.isDeleted) ? `
-                                <button onclick="event.stopPropagation(); window.deleteCommunityImage(${img.id})" class="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded hover:bg-red-700 shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" title="Bild löschen"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                <button onclick="event.stopPropagation(); deleteCommunityImage(${img.id})" class="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded hover:bg-red-700 shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" title="Bild löschen"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             ` : ''}
                         </div>
                     `;
@@ -734,53 +686,53 @@
             };
 
             return `
-            <div class="max-w-6xl mx-auto mt-4 font-sans mb-16 px-4 xl:px-0">
-                <button onclick="window.setView('home')" class="flex items-center gap-2 text-blue-600 font-bold text-sm mb-6 hover:underline cursor-pointer">
+            <div class="max-w-6xl mx-auto mt-4 font-sans mb-16 px-4 md:px-0">
+                <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-bold text-sm mb-6 hover:underline cursor-pointer">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                 </button>
                 
                 <div class="mb-8">
-                    <h2 class="text-3xl sm:text-4xl md:text-5xl font-black uppercase font-serif mb-2 tracking-tighter">Tagesbilder</h2>
-                    <p class="text-gray-600 text-sm sm:text-base">Teile Momente aus Winterthur mit der Community. Bilder verschwinden automatisch nach exakt 24 Stunden.</p>
+                    <h2 class="text-3xl md:text-5xl font-black uppercase font-serif mb-2 tracking-tighter">Tagesbilder</h2>
+                    <p class="text-gray-600 text-sm md:text-base">Teile Momente aus Winterthur mit der Community. Bilder verschwinden automatisch nach exakt 24 Stunden.</p>
                 </div>
 
                 <div class="bg-white p-4 sm:p-6 md:p-8 border border-gray-200 shadow-sm rounded-sm mb-12">
                     ${currentUser ? `
-                        <h4 class="font-bold text-gray-800 mb-4 sm:mb-6 flex items-center gap-2 border-b pb-2"><i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i> Eigenes Bild teilen</h4>
-                        <div class="flex flex-col md:flex-row gap-4 sm:gap-6">
+                        <h4 class="font-bold text-gray-800 mb-6 flex items-center gap-2 border-b pb-2"><i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i> Eigenes Bild teilen</h4>
+                        <div class="flex flex-col md:flex-row gap-6">
                             <div class="flex-1 bg-gray-50 p-4 sm:p-5 border border-gray-200 rounded">
-                                <label class="block text-sm font-bold text-gray-700 mb-2 sm:mb-3"><i data-lucide="monitor-up" class="inline w-4 h-4 mr-1"></i> Vom Gerät hochladen</label>
-                                <input type="file" id="communityImgFile" accept="image/*" class="w-full text-xs sm:text-sm bg-white border border-gray-300 rounded px-2 sm:px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer" />
+                                <label class="block text-sm font-bold text-gray-700 mb-3"><i data-lucide="monitor-up" class="inline w-4 h-4 mr-1"></i> Vom Handy/PC hochladen</label>
+                                <input type="file" id="communityImgFile" accept="image/*" class="w-full text-sm bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-800 hover:file:bg-blue-200" />
                             </div>
-                            <div class="flex items-center justify-center py-2 md:py-0">
+                            <div class="flex items-center justify-center">
                                 <span class="text-gray-400 font-black uppercase text-xs tracking-wider bg-white px-2">ODER</span>
                             </div>
                             <div class="flex-1 bg-gray-50 p-4 sm:p-5 border border-gray-200 rounded">
-                                <label class="block text-sm font-bold text-gray-700 mb-2 sm:mb-3"><i data-lucide="link" class="inline w-4 h-4 mr-1"></i> Bild-URL einfügen</label>
-                                <input type="url" id="communityImgUrl" placeholder="https://beispiel.de/bild.jpg" class="w-full text-sm bg-white border border-gray-300 rounded px-4 py-2 focus:border-blue-500 focus:outline-none" />
+                                <label class="block text-sm font-bold text-gray-700 mb-3"><i data-lucide="link" class="inline w-4 h-4 mr-1"></i> Bild-URL einfügen</label>
+                                <input type="url" id="communityImgUrl" placeholder="https://beispiel.de/bild.jpg" class="w-full text-sm bg-white border border-gray-300 rounded px-4 py-2.5 focus:border-blue-500 focus:outline-none" />
                             </div>
                         </div>
                         <div class="mt-6 flex justify-end">
-                            <button onclick="window.handleCommunityUpload()" class="w-full md:w-auto bg-blue-900 text-white font-bold px-8 py-3 rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer flex justify-center items-center gap-2">
+                            <button onclick="handleCommunityUpload()" class="w-full md:w-auto bg-blue-900 text-white font-bold px-8 py-3 rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer flex justify-center items-center gap-2">
                                 Bild veröffentlichen <i data-lucide="send" class="w-4 h-4"></i>
                             </button>
                         </div>
                     ` : `
                         <div class="bg-blue-50 p-4 rounded border border-blue-100 flex flex-col sm:flex-row justify-between items-center gap-4">
                             <div class="flex items-center gap-3 text-blue-900">
-                                <i data-lucide="info" class="w-6 h-6"></i>
+                                <i data-lucide="info" class="w-6 h-6 shrink-0"></i>
                                 <span class="text-sm font-bold">Logge dich ein, um eigene Bilder mit der Community zu teilen!</span>
                             </div>
-                            <button onclick="window.showUserLogin()" class="w-full sm:w-auto bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer">Anmelden</button>
+                            <button onclick="showUserLogin()" class="bg-blue-900 text-white w-full sm:w-auto px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer">Anmelden</button>
                         </div>
                     `}
                 </div>
 
                 <div>
-                    <h3 class="text-xl sm:text-2xl font-black uppercase border-b-2 border-black pb-2 mb-6 inline-block">Heute</h3>
+                    <h3 class="text-xl md:text-2xl font-black uppercase border-b-2 border-black pb-2 mb-6 inline-block">Heute</h3>
                     ${renderImageGrid(heuteImages)}
 
-                    <h3 class="text-xl sm:text-2xl font-black uppercase border-b-2 border-gray-400 text-gray-600 pb-2 mb-6 inline-block">Gestern</h3>
+                    <h3 class="text-xl md:text-2xl font-black uppercase border-b-2 border-gray-400 text-gray-600 pb-2 mb-6 inline-block">Gestern</h3>
                     ${renderImageGrid(gesternImages)}
                 </div>
             </div>`;
@@ -790,18 +742,18 @@
             const isAdmin = hasAdminAccess();
             
             return `
-            <div class="max-w-4xl mx-auto bg-white p-4 sm:p-6 md:p-8 shadow-sm border border-gray-100 min-h-[70vh] font-sans flex flex-col mt-4 mb-16 mx-4 sm:mx-auto">
+            <div class="max-w-4xl mx-auto bg-white p-4 sm:p-6 md:p-8 shadow-sm border border-gray-100 min-h-[70vh] font-sans flex flex-col mt-4 mb-16">
                 <div class="mb-4 sm:mb-6 border-b border-gray-200 pb-4">
-                    <button onclick="window.setView('home')" class="flex items-center gap-2 text-blue-600 font-bold text-sm mb-4 hover:underline cursor-pointer">
+                    <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-bold text-sm mb-4 hover:underline cursor-pointer">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                     </button>
-                    <h2 class="text-2xl sm:text-3xl font-black uppercase flex items-center gap-3 text-gray-800">
-                        <i data-lucide="message-square-plus" class="w-6 h-6 sm:w-8 sm:h-8 text-blue-600"></i> Website bewerten
+                    <h2 class="text-2xl md:text-3xl font-black uppercase flex items-center gap-3 text-gray-800">
+                        <i data-lucide="message-square-plus" class="w-6 h-6 md:w-8 md:h-8 text-blue-600 shrink-0"></i> Website bewerten
                     </h2>
-                    <p class="text-gray-600 text-sm sm:text-base mt-2">Wir entwickeln uns ständig weiter. Was gefällt dir an der Zeitung? Welche Funktionen fehlen dir noch?</p>
+                    <p class="text-gray-600 mt-2 text-sm md:text-base">Wir entwickeln uns ständig weiter. Was gefällt dir an der Zeitung? Welche Funktionen fehlen dir noch?</p>
                 </div>
                 
-                <div class="flex-1 overflow-y-auto flex flex-col gap-4 mb-4 pr-1 sm:pr-2 bg-gray-50 p-3 sm:p-4 rounded border border-gray-200" id="feedbackContainer" style="max-height: 50vh;">
+                <div class="flex-1 overflow-y-auto flex flex-col gap-4 mb-4 pr-2 bg-gray-50 p-3 sm:p-4 rounded border border-gray-200" id="feedbackContainer" style="max-height: 50vh;">
                     ${siteFeedbacks.map(f => {
                         const isLiked = currentUser && f.likes && f.likes.includes(currentUser);
                         const isAuthor = currentUser === f.username;
@@ -814,8 +766,8 @@
                         else if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
 
                         return `
-                        <div class="flex gap-2 sm:gap-3 ${f.username === currentUser ? 'flex-row-reverse' : ''}">
-                            ${getUserAvatar(f.username, 'w-8 h-8 sm:w-10 sm:h-10', 'w-4 h-4', true)}
+                        <div class="flex gap-3 ${f.username === currentUser ? 'flex-row-reverse' : ''}">
+                            ${getUserAvatar(f.username, 'w-8 h-8', 'w-4 h-4', true)}
                             <div class="max-w-[85%] rounded-lg p-3 ${f.username === currentUser ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border border-gray-300 text-gray-800 rounded-tl-none'} shadow-sm ${status === 'pending' ? 'border-orange-400 opacity-90' : ''}">
                                 <div class="flex items-center gap-2 mb-1 ${f.username === currentUser ? 'justify-end' : ''} flex-wrap">
                                     <span class="font-bold text-xs ${f.username === currentUser ? 'text-blue-200' : 'text-blue-900'}">${getDisplayName(f.username)}</span>
@@ -824,19 +776,19 @@
                                 </div>
                                 <p class="text-sm leading-relaxed">${f.text}</p>
                                 
-                                <div class="mt-2 flex flex-col md:flex-row items-start md:items-center justify-between border-t ${f.username === currentUser ? 'border-blue-500/50' : 'border-gray-100'} pt-1.5 gap-2">
-                                    <button onclick="window.toggleFeedbackLike(${f.id})" class="flex items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer ${isLiked ? (f.username === currentUser ? 'text-white' : 'text-red-500') : (f.username === currentUser ? 'text-blue-200 hover:text-white' : 'text-gray-400 hover:text-red-500')}">
+                                <div class="mt-2 flex flex-col sm:flex-row sm:items-center justify-between border-t ${f.username === currentUser ? 'border-blue-500/50' : 'border-gray-100'} pt-1.5 gap-2">
+                                    <button onclick="toggleFeedbackLike(${f.id})" class="flex items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer ${isLiked ? (f.username === currentUser ? 'text-white' : 'text-red-500') : (f.username === currentUser ? 'text-blue-200 hover:text-white' : 'text-gray-400 hover:text-red-500')}">
                                         <i data-lucide="heart" class="w-3 h-3 ${isLiked ? 'fill-current' : ''}"></i> ${f.likes ? f.likes.length : 0} Likes
                                     </button>
                                     
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         ${status === 'pending' && isAdmin ? `
-                                            <button onclick="window.adminApproveContent('feedback', ${f.id}, null)" class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold hover:bg-green-200 transition-colors">Erlauben</button>
-                                            <button onclick="window.adminRejectContent('feedback', ${f.id}, null)" class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold hover:bg-red-200 transition-colors">Löschen</button>
+                                            <button onclick="adminApproveContent('feedback', ${f.id}, null)" class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold hover:bg-green-200 transition-colors">Erlauben</button>
+                                            <button onclick="adminRejectContent('feedback', ${f.id}, null)" class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold hover:bg-red-200 transition-colors">Löschen</button>
                                         ` : ''}
 
                                         ${isAdmin || f.username === currentUser ? `
-                                            <button onclick="window.deleteFeedback(${f.id})" class="text-[10px] transition-colors cursor-pointer flex items-center gap-1 ${f.username === currentUser ? 'text-blue-200 hover:text-white' : 'text-gray-400 hover:text-red-500'}">
+                                            <button onclick="deleteFeedback(${f.id})" class="text-[10px] transition-colors cursor-pointer flex items-center gap-1 ${f.username === currentUser ? 'text-blue-200 hover:text-white' : 'text-gray-400 hover:text-red-500'}">
                                                 <i data-lucide="trash-2" class="w-3 h-3"></i> Löschen
                                             </button>
                                         ` : ''}
@@ -850,16 +802,16 @@
                 </div>
                 
                 ${currentUser ? `
-                <div class="pt-4 border-t border-gray-200 flex flex-col md:flex-row gap-2">
-                    <input type="text" id="feedbackInput" placeholder="Dein Feedback oder Verbesserungsvorschlag..." class="flex-1 border border-gray-300 rounded px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') window.sendFeedback()" />
-                    <button onclick="window.sendFeedback()" class="w-full md:w-auto bg-blue-900 text-white px-6 py-2.5 rounded font-bold hover:bg-blue-800 transition-colors text-sm flex justify-center items-center gap-2 cursor-pointer shadow-sm">
+                <div class="pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="feedbackInput" placeholder="Dein Feedback oder Verbesserungsvorschlag schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') sendFeedback()" />
+                    <button onclick="sendFeedback()" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors text-sm flex justify-center items-center gap-2 cursor-pointer shadow-sm">
                         Senden <i data-lucide="send" class="w-4 h-4"></i>
                     </button>
                 </div>
                 ` : `
                 <div class="pt-4 border-t border-gray-200 flex flex-col items-center justify-center bg-blue-50 p-6 rounded mt-2 border border-blue-100">
-                    <p class="text-gray-700 font-bold mb-3 text-center text-sm sm:text-base">Möchtest du uns auch bewerten oder einen Vorschlag machen?</p>
-                    <button onclick="pendingView='feedback'; window.showUserLogin()" class="w-full sm:w-auto bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm shadow-sm">Jetzt einloggen</button>
+                    <p class="text-gray-700 font-bold mb-3 text-center text-sm md:text-base">Möchtest du uns auch bewerten oder einen Vorschlag machen?</p>
+                    <button onclick="pendingView='feedback'; showUserLogin()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm shadow-sm w-full sm:w-auto">Jetzt einloggen</button>
                 </div>
                 `}
             </div>
@@ -878,7 +830,7 @@
             const mainArticles = currentArticles.slice(1, 4);
             const trendingArticles = [...currentArticles].sort((a, b) => b.views.length - a.views.length).slice(0, 5);
 
-            let html = `<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8"><div class="lg:col-span-8 flex flex-col gap-8">`;
+            let html = `<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8"><div class="lg:col-span-8 flex flex-col gap-6 lg:gap-8">`;
 
             if (topStory) {
                 const isLiked = currentUser && topStory.likes.includes(currentUser);
@@ -886,29 +838,29 @@
                 const displayImage = topStory.imageUrl || getFallbackImage(topStory.category);
                 
                 html += `
-                <article onclick="window.openArticle(${topStory.id})" class="group cursor-pointer">
+                <article onclick="openArticle(${topStory.id})" class="group cursor-pointer">
                     <div class="relative overflow-hidden mb-4 rounded-sm">
-                        <img src="${displayImage}" alt="${topStory.title}" class="w-full h-48 sm:h-64 md:h-[400px] object-cover group-hover:scale-105 transition-transform duration-500" />
-                        ${isEilmeldung ? '<div class="absolute top-2 left-2 sm:top-4 sm:left-4 bg-red-600 text-white text-[10px] sm:text-xs font-bold uppercase px-2 py-1 font-sans shadow-md animate-pulse">Eilmeldung</div>' : ''}
+                        <img src="${displayImage}" alt="${topStory.title}" class="w-full h-64 sm:h-80 md:h-[400px] object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ${isEilmeldung ? '<div class="absolute top-3 left-3 sm:top-4 sm:left-4 bg-red-600 text-white text-xs font-bold uppercase px-2 py-1 font-sans shadow-md animate-pulse">Eilmeldung</div>' : ''}
                     </div>
-                    <div class="flex flex-col gap-2 px-1 sm:px-0">
+                    <div class="flex flex-col gap-2">
                         <span class="text-blue-700 font-bold text-xs sm:text-sm uppercase font-sans tracking-wide flex justify-between">
                             ${topStory.category}
                             <span class="flex items-center gap-3 text-gray-500">
-                                <span class="flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3 sm:w-4 sm:h-4"></i> ${topStory.views.length}</span>
-                                <span class="flex items-center gap-1 text-red-500"><i data-lucide="heart" class="w-3 h-3 sm:w-4 sm:h-4 ${isLiked ? 'fill-current' : ''}"></i> ${topStory.likes.length}</span>
+                                <span class="flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> ${topStory.views.length}</span>
+                                <span class="flex items-center gap-1 text-red-500"><i data-lucide="heart" class="w-4 h-4 ${isLiked ? 'fill-current' : ''}"></i> ${topStory.likes.length}</span>
                             </span>
                         </span>
-                        <h2 class="text-2xl sm:text-4xl md:text-5xl font-bold leading-tight group-hover:text-blue-700 transition-colors">${topStory.title}</h2>
+                        <h2 class="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight group-hover:text-blue-700 transition-colors">${topStory.title}</h2>
                         <p class="text-base sm:text-lg text-gray-700 leading-relaxed mt-2">${topStory.summary}</p>
-                        <div class="text-xs sm:text-sm text-gray-500 font-sans mt-2 flex items-center gap-2">
+                        <div class="text-xs sm:text-sm text-gray-500 font-sans mt-2 flex flex-wrap items-center gap-2">
                             <span class="font-semibold text-gray-900">${topStory.author}</span>
-                            <span>•</span>
-                            <span class="time-ago-display" data-timestamp="${topStory.timestamp}">${getTimeAgo(topStory.timestamp)}</span>
+                            <span class="hidden sm:inline">•</span>
+                            <span class="time-ago-display w-full sm:w-auto" data-timestamp="${topStory.timestamp}">${getTimeAgo(topStory.timestamp)}</span>
                         </div>
                     </div>
                 </article>
-                <hr class="border-gray-300" />
+                <hr class="border-gray-200" />
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">`;
             }
 
@@ -918,8 +870,8 @@
                 const displayImage = article.imageUrl || getFallbackImage(article.category);
                 
                 html += `
-                <article onclick="window.openArticle(${article.id})" class="group cursor-pointer flex flex-col gap-3 px-1 sm:px-0">
-                    <div class="relative overflow-hidden h-40 sm:h-48 rounded-sm">
+                <article onclick="openArticle(${article.id})" class="group cursor-pointer flex flex-col gap-3 pb-4 sm:pb-0 border-b border-gray-100 sm:border-0 last:border-0">
+                    <div class="relative overflow-hidden h-48 rounded-sm">
                         <img src="${displayImage}" alt="${article.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ${isEilmeldung ? '<div class="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shadow-sm">Eilmeldung</div>' : ''}
                     </div>
@@ -938,35 +890,35 @@
             html += `</div></div>`;
 
             html += `
-            <aside class="lg:col-span-4 flex flex-col gap-6 lg:gap-8 px-1 sm:px-0">
-                <div onclick="window.setView('gallery'); window.scrollTo(0,0);" class="bg-gradient-to-br from-green-50 to-green-100 p-6 border border-green-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow group relative overflow-hidden rounded-sm">
+            <aside class="lg:col-span-4 flex flex-col gap-6 lg:gap-8">
+                <div onclick="setView('gallery'); window.scrollTo(0,0);" class="bg-gradient-to-br from-green-50 to-green-100 p-5 sm:p-6 border border-green-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow group relative overflow-hidden rounded-sm">
                     <i data-lucide="camera" class="w-16 h-16 text-green-200 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform"></i>
-                    <h3 class="text-xl font-black uppercase mb-2 text-green-900 flex items-center gap-2">Tagesbilder</h3>
+                    <h3 class="text-lg sm:text-xl font-black uppercase mb-2 text-green-900 flex items-center gap-2">Tagesbilder</h3>
                     <p class="text-sm text-green-800 mb-4 relative z-10 font-sans">Entdecke die neuesten Bilder aus unserer Community von heute!</p>
                     <span class="text-sm font-bold text-green-700 flex items-center gap-1 group-hover:text-green-900 transition-colors relative z-10">Zur Galerie <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
                 </div>
 
                 <div class="bg-white p-5 sm:p-6 border border-gray-200 shadow-sm">
                     <h3 class="text-lg sm:text-xl font-black uppercase mb-4 pb-2 border-b-2 border-black font-sans flex items-center gap-2">
-                        <span class="w-2 h-2 sm:w-3 sm:h-3 bg-red-600 rounded-full inline-block animate-pulse"></span>
+                        <span class="w-3 h-3 bg-red-600 rounded-full inline-block animate-pulse shrink-0"></span>
                         Meistgelesen
                     </h3>
                     <ul class="flex flex-col gap-4">
                         ${trendingArticles.map((story, i) => `
-                            <li onclick="window.openArticle(${story.id})" class="flex gap-3 sm:gap-4 group cursor-pointer">
-                                <span class="text-2xl sm:text-3xl font-black text-gray-200 group-hover:text-blue-600 transition-colors font-sans">${i + 1}</span>
+                            <li onclick="openArticle(${story.id})" class="flex gap-4 group cursor-pointer items-start">
+                                <span class="text-2xl sm:text-3xl font-black text-gray-200 group-hover:text-blue-600 transition-colors font-sans mt-0.5">${i + 1}</span>
                                 <h4 class="meistgelesen-item font-bold text-sm sm:text-base group-hover:text-blue-600 transition-colors mt-1 line-clamp-2">${story.title}</h4>
                             </li>
                         `).join('')}
                     </ul>
                 </div>
-                <div class="bg-blue-50 p-5 sm:p-6 border border-blue-100 text-center rounded-sm">
-                    <i data-lucide="mail" class="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-3"></i>
+                <div class="bg-blue-50 p-5 sm:p-6 border border-blue-100 mt-2 sm:mt-4 text-center rounded-sm">
+                    <i data-lucide="mail" class="w-8 h-8 text-blue-600 mx-auto mb-3"></i>
                     <h3 class="text-lg sm:text-xl font-bold mb-2">Das Wichtigste am Morgen</h3>
-                    <p class="text-xs sm:text-sm text-gray-600 mb-4 font-sans">Melden Sie sich für unseren kostenlosen täglichen Newsletter an.</p>
+                    <p class="text-sm text-gray-600 mb-4 font-sans">Melden Sie sich für unseren kostenlosen täglichen Newsletter an.</p>
                     <div class="flex flex-col gap-2 font-sans">
-                        <input type="email" placeholder="Ihre E-Mail Adresse" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm" />
-                        <button onclick="window.showModal('Newsletter abonniert!', 'Vielen Dank für Ihre Anmeldung. Sie erhalten in Kürze eine Bestätigungs-E-Mail.')" class="bg-black text-white px-4 py-2 rounded font-bold hover:bg-gray-800 transition-colors text-sm">Jetzt abonnieren</button>
+                        <input type="email" placeholder="Ihre E-Mail Adresse" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" />
+                        <button onclick="showModal('Newsletter abonniert!', 'Vielen Dank für Ihre Anmeldung. Sie erhalten in Kürze eine Bestätigungs-E-Mail.')" class="bg-black text-white px-4 py-2 rounded font-bold hover:bg-gray-800 transition-colors">Jetzt abonnieren</button>
                     </div>
                 </div>
             </aside></div>`;
@@ -980,13 +932,13 @@
             
             if (!hasAuthorAccess() && article.autoDeleteDate && new Date(article.autoDeleteDate) <= new Date()) {
                 return `
-                <div class="max-w-4xl mx-auto bg-white p-8 sm:p-12 mt-8 shadow-sm border border-gray-100 text-center font-sans">
-                    <button onclick="window.setView('home')" class="flex items-center justify-center gap-2 text-blue-600 font-bold text-sm mb-6 hover:underline cursor-pointer mx-auto">
+                <div class="max-w-4xl mx-auto bg-white p-6 sm:p-12 mt-8 shadow-sm border border-gray-100 text-center font-sans">
+                    <button onclick="setView('home')" class="flex items-center justify-center gap-2 text-blue-600 font-bold text-sm mb-6 hover:underline cursor-pointer mx-auto">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                     </button>
                     <i data-lucide="clock" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
-                    <h2 class="text-xl sm:text-2xl font-black text-gray-700 mb-2">Artikel nicht mehr verfügbar</h2>
-                    <p class="text-gray-500 text-sm sm:text-base">Das Löschungsdatum dieses Artikels ist abgelaufen. Er wurde in das Archiv verschoben.</p>
+                    <h2 class="text-2xl font-black text-gray-700 mb-2">Artikel nicht mehr verfügbar</h2>
+                    <p class="text-gray-500">Das Löschungsdatum dieses Artikels ist abgelaufen. Er wurde in das Archiv verschoben.</p>
                 </div>`;
             }
 
@@ -998,44 +950,43 @@
             const displayImage = article.imageUrl || getFallbackImage(article.category);
 
             return `
-            <article class="max-w-4xl mx-auto bg-white p-4 sm:p-8 md:p-12 shadow-sm border border-gray-100">
-                <button onclick="window.setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 sm:mb-8 hover:underline cursor-pointer">
+            <article class="max-w-4xl mx-auto bg-white p-4 sm:p-6 md:p-12 shadow-sm border border-gray-100">
+                <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                 </button>
-                <span class="text-blue-700 font-bold text-xs sm:text-sm uppercase font-sans tracking-wide cursor-pointer hover:underline" onclick="window.executeSearchCategory('${article.category}')">${article.category}</span>
-                <h1 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mt-3 sm:mt-4 mb-4 sm:mb-6 break-words">${article.title}</h1>
+                <span class="text-blue-700 font-bold text-xs sm:text-sm uppercase font-sans tracking-wide cursor-pointer hover:underline" onclick="executeSearchCategory('${article.category}')">${article.category}</span>
+                <h1 class="text-2xl sm:text-4xl md:text-5xl font-bold leading-tight mt-2 mb-4">${article.title}</h1>
                 
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between border-y border-gray-200 py-3 sm:py-4 mb-6 sm:mb-8 font-sans text-sm text-gray-600 gap-4">
-                    <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onclick="window.setView('authors'); window.scrollTo(0,0);" title="Mehr über den Autor erfahren">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between border-y border-gray-200 py-3 sm:py-4 mb-6 font-sans text-sm text-gray-600 gap-4">
+                    <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded transition-colors w-full sm:w-auto" onclick="setView('authors'); window.scrollTo(0,0);" title="Mehr über den Autor erfahren">
                         ${authorData && authorData.imageUrl ? `
                             <img src="${authorData.imageUrl}" class="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0" onerror="this.outerHTML='${getStandardAvatarHtml('w-8 h-8', 'w-4 h-4').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
                         ` : getStandardAvatarHtml('w-8 h-8', 'w-4 h-4')}
-                        <div>
-                            <span class="font-bold text-gray-900 block text-xs sm:text-sm">${article.author}</span>
-                            <span class="text-[10px] sm:text-xs text-gray-500 time-ago-display" data-timestamp="${article.timestamp}">${getTimeAgo(article.timestamp)}</span>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-900 block">${article.author}</span>
+                            <span class="text-xs text-gray-500 time-ago-display" data-timestamp="${article.timestamp}">${getTimeAgo(article.timestamp)}</span>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 sm:gap-6 justify-between sm:justify-end">
+                    <div class="flex items-center gap-4 sm:gap-6 shrink-0 border-t sm:border-0 pt-3 sm:pt-0 border-gray-100 w-full sm:w-auto justify-between sm:justify-end">
                         <span class="flex items-center gap-2" title="Aufrufe">
                             <i data-lucide="eye" class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400"></i>
-                            <span class="font-bold">${article.views.length}</span>
+                            <span class="font-bold text-sm sm:text-base">${article.views.length}</span>
                         </span>
-                        <button onclick="window.toggleLike(${article.id})" class="flex items-center gap-2 px-3 py-1 rounded-full transition-colors border cursor-pointer ${isLiked ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-200 hover:bg-gray-50'} w-full sm:w-auto justify-center">
+                        <button onclick="toggleLike(${article.id})" class="flex items-center gap-2 px-3 py-1 rounded-full transition-colors border cursor-pointer ${isLiked ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-200 hover:bg-gray-50'}">
                             <i data-lucide="heart" class="w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-current text-red-500' : 'text-gray-400'}"></i>
-                            <span class="font-bold">${article.likes.length} Likes</span>
+                            <span class="font-bold text-sm sm:text-base">${article.likes.length} Likes</span>
                         </button>
                     </div>
                 </div>
 
-                <p class="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 leading-relaxed mb-6 sm:mb-8">${article.summary}</p>
+                <p class="text-lg md:text-2xl font-bold text-gray-800 leading-relaxed mb-6">${article.summary}</p>
+                <img src="${displayImage}" alt="Artikelbild" class="w-full h-auto max-h-[300px] md:max-h-[500px] object-cover mb-8 rounded-sm" />
                 
-                <img src="${displayImage}" alt="Artikelbild" class="w-[calc(100%+2rem)] -mx-4 sm:w-full sm:mx-0 sm:rounded-sm h-auto max-h-[300px] sm:max-h-[400px] md:max-h-[600px] object-cover mb-6 sm:mb-8 shadow-sm" />
-                
-                <div class="prose prose-base sm:prose-lg max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap">${article.content || "Kein weiterer Text verfügbar."}</div>
+                <div class="prose prose-lg max-w-none text-gray-800 leading-relaxed text-base md:text-lg whitespace-pre-wrap">${article.content || "Kein weiterer Text verfügbar."}</div>
                 
                 ${article.sources && article.sources.length > 0 ? `
-                <div class="mt-8 sm:mt-12 p-4 sm:p-6 bg-gray-50 border border-gray-200 rounded-sm font-sans">
-                    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="link" class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"></i> Quellen & Weiterführende Links</h4>
+                <div class="mt-8 md:mt-12 p-4 md:p-6 bg-gray-50 border border-gray-200 rounded-sm font-sans">
+                    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="link" class="w-4 h-4 text-blue-600"></i> Quellen & Weiterführende Links</h4>
                     <ul class="flex flex-col gap-2">
                         ${article.sources.map(src => `
                             <li><a href="${src}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-xs sm:text-sm break-all"><i data-lucide="external-link" class="w-3 h-3 shrink-0"></i> ${src}</a></li>
@@ -1044,11 +995,11 @@
                 </div>
                 ` : ''}
 
-                <div class="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-gray-200 font-sans">
-                    <h3 class="text-xl sm:text-2xl font-black mb-6">Kommentare (${activeComments.length})</h3>
+                <div class="mt-12 md:mt-16 pt-8 border-t border-gray-200 font-sans">
+                    <h3 class="text-xl md:text-2xl font-black mb-6">Kommentare (${activeComments.length})</h3>
                     
                     <div class="flex flex-col gap-4 sm:gap-6 mb-8">
-                        ${activeComments.length === 0 ? '<p class="text-gray-500 italic text-sm sm:text-base">Noch keine Kommentare vorhanden. Sei der Erste!</p>' : ''}
+                        ${activeComments.length === 0 ? '<p class="text-gray-500 italic text-sm">Noch keine Kommentare vorhanden. Sei der Erste!</p>' : ''}
                         
                         ${activeComments.map(c => {
                             const isCommentLiked = currentUser && c.likes.includes(currentUser);
@@ -1059,50 +1010,50 @@
                             if (status !== 'approved' && !isAuthor && !isAdmin) return '';
 
                             let modBadge = '';
-                            if (status === 'checking') modBadge = '<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold animate-pulse ml-2">KI prüft...</span>';
-                            else if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
-                            else if (status === 'rejected') modBadge = '<span class="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold ml-2">Abgelehnt</span>';
+                            if (status === 'checking') modBadge = '<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold animate-pulse ml-2 shrink-0">KI prüft...</span>';
+                            else if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2 shrink-0">Wartet auf Freigabe</span>';
+                            else if (status === 'rejected') modBadge = '<span class="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold ml-2 shrink-0">Abgelehnt</span>';
 
                             return `
                             <div class="bg-gray-50 p-3 sm:p-4 rounded border border-gray-100 relative ${c.isDeleted || status === 'pending' ? 'opacity-70 bg-orange-50' : ''}">
-                                ${c.isDeleted ? `<div class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded">${isAdmin ? 'Gelöscht' : 'Gelöscht (Nur für dich sichtbar)'}</div>` : ''}
+                                ${c.isDeleted ? `<div class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded z-10">${isAdmin ? 'Gelöscht' : 'Gelöscht (Nur für dich sichtbar)'}</div>` : ''}
                                 
                                 <div class="flex gap-3 sm:gap-4">
-                                    ${getUserAvatar(c.username, 'w-8 h-8 sm:w-10 sm:h-10', 'w-4 h-4 sm:w-5 sm:h-5', true)}
-                                    <div class="flex-1">
+                                    ${getUserAvatar(c.username, 'w-8 h-8 sm:w-10 sm:h-10 shrink-0', 'w-4 h-4 sm:w-5 sm:h-5', true)}
+                                    <div class="flex-1 min-w-0">
                                         <div class="flex flex-wrap gap-2 items-center mb-1">
-                                            <span class="font-bold text-sm text-blue-900">${getDisplayName(c.username)}</span>
+                                            <span class="font-bold text-sm sm:text-base text-blue-900 truncate max-w-[150px] sm:max-w-none">${getDisplayName(c.username)}</span>
                                             ${modBadge}
-                                            <span class="text-[10px] sm:text-xs text-gray-400 ml-auto time-ago-display" data-timestamp="${c.timestamp}">${getTimeAgo(c.timestamp)}</span>
+                                            <span class="text-[10px] sm:text-xs text-gray-400 ml-auto time-ago-display whitespace-nowrap" data-timestamp="${c.timestamp}">${getTimeAgo(c.timestamp)}</span>
                                         </div>
-                                        <p class="text-sm sm:text-base text-gray-800 leading-relaxed mb-3">${c.text}</p>
+                                        <p class="text-sm sm:text-base text-gray-800 leading-relaxed mb-3 break-words">${c.text}</p>
                                         
                                         <div class="flex flex-wrap gap-3 sm:gap-4 items-center text-xs sm:text-sm">
-                                            <button onclick="window.toggleCommentLike(${article.id}, ${c.id})" class="flex items-center gap-1 ${isCommentLiked ? 'text-red-500 font-bold' : 'text-gray-500 hover:text-gray-800'} transition-colors cursor-pointer">
-                                                <i data-lucide="heart" class="w-3 h-3 sm:w-4 sm:h-4 ${isCommentLiked ? 'fill-current' : ''}"></i> ${c.likes.length}
+                                            <button onclick="toggleCommentLike(${article.id}, ${c.id})" class="flex items-center gap-1 ${isCommentLiked ? 'text-red-500 font-bold' : 'text-gray-500 hover:text-gray-800'} transition-colors cursor-pointer">
+                                                <i data-lucide="heart" class="w-3.5 h-3.5 sm:w-4 sm:h-4 ${isCommentLiked ? 'fill-current' : ''}"></i> ${c.likes.length}
                                             </button>
                                             
                                             ${!c.isDeleted && status === 'approved' && !isAuthor && !isAdmin ? `
-                                                <button onclick="window.reportComment(${article.id}, ${c.id})" class="flex items-center gap-1 ${hasReported ? 'text-orange-500 font-bold' : 'text-gray-400 hover:text-orange-500'} transition-colors cursor-pointer" title="${hasReported ? 'Du hast diesen Kommentar gemeldet' : 'Kommentar an Moderation melden'}">
-                                                    <i data-lucide="flag" class="w-3 h-3 sm:w-4 sm:h-4 ${hasReported ? 'fill-current' : ''}"></i> Melden
+                                                <button onclick="reportComment(${article.id}, ${c.id})" class="flex items-center gap-1 ${hasReported ? 'text-orange-500 font-bold' : 'text-gray-400 hover:text-orange-500'} transition-colors cursor-pointer" title="${hasReported ? 'Du hast diesen Kommentar gemeldet' : 'Kommentar an Moderation melden'}">
+                                                    <i data-lucide="flag" class="w-3.5 h-3.5 sm:w-4 sm:h-4 ${hasReported ? 'fill-current' : ''}"></i> Melden
                                                 </button>
                                             ` : ''}
 
                                             ${status === 'pending' && isAdmin ? `
-                                                <button onclick="window.adminApproveContent('comment', ${c.id}, ${article.id})" class="text-green-600 hover:text-green-700 font-bold flex items-center gap-1"><i data-lucide="check" class="w-3 h-3 sm:w-4 sm:h-4"></i> Zulassen</button>
-                                                <button onclick="window.adminRejectContent('comment', ${c.id}, ${article.id})" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1"><i data-lucide="x" class="w-3 h-3 sm:w-4 sm:h-4"></i> Ablehnen</button>
+                                                <button onclick="adminApproveContent('comment', ${c.id}, ${article.id})" class="text-green-600 hover:text-green-700 font-bold flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Zulassen</button>
+                                                <button onclick="adminRejectContent('comment', ${c.id}, ${article.id})" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1"><i data-lucide="x" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Ablehnen</button>
                                             ` : ''}
 
                                             ${(isAuthor || isAdmin) ? (
                                                 c.isDeleted ? (
                                                     (isAdmin || c.deletedBy !== 'admin') ? `
-                                                        <button onclick="window.restoreComment(${article.id}, ${c.id})" class="flex items-center gap-1 text-green-600 hover:text-green-700 font-bold transition-colors cursor-pointer">
-                                                            <i data-lucide="refresh-cw" class="w-3 h-3 sm:w-4 sm:h-4"></i> Wiederherstellen
+                                                        <button onclick="restoreComment(${article.id}, ${c.id})" class="flex items-center gap-1 text-green-600 hover:text-green-700 font-bold transition-colors cursor-pointer">
+                                                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Wiederherstellen
                                                         </button>
-                                                    ` : `<span class="text-red-500 text-[10px] font-bold flex items-center gap-1" title="Dieser Kommentar wurde von der Moderation gelöscht"><i data-lucide="shield-alert" class="w-3 h-3"></i> Vom Admin entfernt</span>`
+                                                    ` : `<span class="text-red-500 text-[10px] font-bold flex items-center gap-1" title="Dieser Kommentar wurde von der Moderation gelöscht"><i data-lucide="shield-alert" class="w-3 h-3"></i> Entfernt</span>`
                                                 ) : `
-                                                    <button onclick="window.deleteComment(${article.id}, ${c.id})" class="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
-                                                        <i data-lucide="trash-2" class="w-3 h-3 sm:w-4 sm:h-4"></i> Löschen
+                                                    <button onclick="deleteComment(${article.id}, ${c.id})" class="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
+                                                        <i data-lucide="trash-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Löschen
                                                     </button>
                                                 `
                                             ) : ''}
@@ -1115,18 +1066,18 @@
                     </div>
                     
                     ${currentUser ? `
-                        <div class="flex flex-col gap-3 bg-white border border-gray-200 p-3 sm:p-4 rounded shadow-sm">
+                        <div class="flex flex-col gap-3 bg-white border border-gray-200 p-4 rounded shadow-sm">
                             <label class="font-bold text-sm text-gray-700 flex items-center gap-2">
-                                ${getUserAvatar(currentUser, 'w-5 h-5 sm:w-6 sm:h-6', 'w-3 h-3', false)}
-                                <span class="truncate">Dein Kommentar als <span class="text-blue-600">${getDisplayName(currentUser)}</span></span>
+                                ${getUserAvatar(currentUser, 'w-6 h-6', 'w-3 h-3', false)}
+                                Dein Kommentar als <span class="text-blue-600 truncate max-w-[150px]">${getDisplayName(currentUser)}</span>
                             </label>
-                            <textarea id="newCommentText" rows="3" class="w-full px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base border border-gray-300 rounded focus:outline-none focus:border-blue-500" placeholder="Schreibe einen konstruktiven Kommentar..."></textarea>
-                            <button onclick="window.submitComment(${article.id})" class="w-full sm:w-auto bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors self-start cursor-pointer">Kommentieren</button>
+                            <textarea id="newCommentText" rows="3" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500" placeholder="Schreibe einen konstruktiven Kommentar..."></textarea>
+                            <button onclick="submitComment(${article.id})" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors self-start cursor-pointer w-full sm:w-auto">Kommentieren</button>
                         </div>
                     ` : `
                         <div class="bg-blue-50 p-4 sm:p-6 rounded border border-blue-100 text-center">
                             <p class="text-gray-700 font-bold mb-3 text-sm sm:text-base">Du möchtest mitdiskutieren?</p>
-                            <button onclick="window.showUserLogin()" class="w-full sm:w-auto bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm">Jetzt einloggen</button>
+                            <button onclick="showUserLogin()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm w-full sm:w-auto">Jetzt einloggen</button>
                         </div>
                     `}
                 </div>
@@ -1136,19 +1087,19 @@
         function renderAuthors() {
             const activeAuthorsList = getActiveAuthors();
             return `
-            <div class="max-w-5xl mx-auto bg-white p-4 sm:p-8 md:p-12 shadow-sm border border-gray-100 min-h-[50vh] font-sans">
-                <button onclick="window.setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
+            <div class="max-w-5xl mx-auto bg-white p-6 sm:p-8 md:p-12 shadow-sm border border-gray-100 min-h-[50vh] font-sans">
+                <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                 </button>
-                <h2 class="text-3xl sm:text-4xl font-black mb-6 sm:mb-8 border-b-2 border-black pb-4 uppercase tracking-tighter">Unsere Redaktion</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                <h2 class="text-3xl md:text-4xl font-black mb-6 md:mb-8 border-b-2 border-black pb-4 uppercase tracking-tighter">Unsere Redaktion</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                     ${activeAuthorsList.map(author => `
-                        <div class="flex flex-col sm:flex-row gap-4 border border-gray-200 p-4 sm:p-6 rounded-sm bg-gray-50 items-start hover:shadow-md transition-shadow">
+                        <div class="flex flex-col sm:flex-row gap-4 border border-gray-200 p-5 md:p-6 rounded-sm bg-gray-50 items-center sm:items-start text-center sm:text-left hover:shadow-md transition-shadow">
                             ${author.imageUrl ? `
-                                <img src="${author.imageUrl}" alt="${author.name}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-white shadow-sm shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onclick="window.showImageModal('${author.imageUrl}')" onerror="this.outerHTML='${getStandardAvatarHtml('w-16 h-16 sm:w-20 sm:h-20', 'w-8 h-8 sm:w-10 sm:h-10').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
-                            ` : getStandardAvatarHtml('w-16 h-16 sm:w-20 sm:h-20', 'w-8 h-8 sm:w-10 sm:h-10')}
+                                <img src="${author.imageUrl}" alt="${author.name}" class="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onclick="showImageModal('${author.imageUrl}')" onerror="this.outerHTML='${getStandardAvatarHtml('w-20 h-20', 'w-10 h-10').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
+                            ` : getStandardAvatarHtml('w-20 h-20', 'w-10 h-10')}
                             <div>
-                                <h3 class="text-xl sm:text-2xl font-bold text-blue-900 mb-2">${author.name}</h3>
+                                <h3 class="text-xl md:text-2xl font-bold text-blue-900 mb-2">${author.name}</h3>
                                 <p class="text-sm text-gray-700 leading-relaxed">${author.bio || 'Keine Beschreibung verfügbar.'}</p>
                             </div>
                         </div>
@@ -1160,7 +1111,7 @@
 
         function renderProfile() {
             if (!currentUser) {
-                window.setView('home');
+                setView('home');
                 return '';
             }
             
@@ -1173,46 +1124,46 @@
             const urlValue = isBase64 ? '' : (user.profilePicUrl || '');
             
             return `
-            <div class="max-w-4xl mx-auto mt-4 sm:mt-8 font-sans mb-16 px-2 sm:px-0">
-                <button onclick="window.setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-4 sm:mb-6 hover:underline cursor-pointer px-2 lg:px-0">
+            <div class="max-w-4xl mx-auto mt-4 sm:mt-8 font-sans mb-16 px-4 md:px-0">
+                <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                 </button>
                 
-                <div class="bg-white p-4 sm:p-8 border border-gray-200 shadow-sm rounded-sm">
-                    <div class="flex flex-col md:flex-row items-center md:items-start gap-4 sm:gap-6 mb-6 sm:mb-8 pb-6 border-b border-gray-200 text-center md:text-left">
+                <div class="bg-white p-5 sm:p-8 border border-gray-200 shadow-sm rounded-sm">
+                    <div class="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8 pb-6 border-b border-gray-200 text-center md:text-left">
                         <div class="relative w-24 h-24 sm:w-32 sm:h-32 shrink-0">
                             ${getUserAvatar(currentUser, 'w-24 h-24 sm:w-32 sm:h-32', 'w-12 h-12 sm:w-16 sm:h-16', true)}
-                            ${user.profilePicUrl ? '<div class="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow pointer-events-none" title="Klicken für Vollbild"><i data-lucide="zoom-in" class="w-3 h-3 sm:w-4 sm:h-4"></i></div>' : ''}
+                            ${user.profilePicUrl ? '<div class="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-1.5 sm:p-2 shadow pointer-events-none" title="Klicken für Vollbild"><i data-lucide="zoom-in" class="w-3 h-3 sm:w-4 sm:h-4"></i></div>' : ''}
                         </div>
-                        <div class="flex-1 w-full">
-                            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-tight truncate">${getDisplayName(currentUser)}</h2>
+                        <div class="flex-1">
+                            <h2 class="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-tight break-all">${getDisplayName(currentUser)}</h2>
                             <p class="text-gray-500 mb-2 text-sm sm:text-base">Dein persönliches Leser-Profil</p>
-                            <span class="bg-blue-100 text-blue-800 text-[10px] sm:text-xs px-2 py-1 rounded uppercase font-bold tracking-wider inline-block">Rolle: ${user.role}</span>
+                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded uppercase font-bold tracking-wider inline-block">Rolle: ${user.role}</span>
                         </div>
                     </div>
                     
-                    <div class="flex flex-col gap-5 sm:gap-6">
-                        <div class="bg-blue-50 p-3 sm:p-4 rounded text-xs sm:text-sm text-gray-700 flex items-start gap-3">
+                    <div class="flex flex-col gap-6">
+                        <div class="bg-blue-50 p-4 rounded text-xs sm:text-sm text-gray-700 flex items-start gap-3">
                             <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0"></i>
                             <p>Hier kannst du dein Profilbild anpassen und entscheiden, ob andere deinen echten Namen oder nur deinen Benutzernamen sehen sollen. Klicke auf dein Bild, um es groß anzusehen!</p>
                         </div>
 
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Benutzername</label>
-                            <input type="text" id="profileUsername" value="${user.username}" class="w-full px-3 py-2 sm:px-4 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white text-sm sm:text-base" />
+                            <input type="text" id="profileUsername" value="${user.username}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
                             <p class="text-xs text-gray-500 mt-1">Wenn du deinen Namen änderst, wird dieser auch bei all deinen bisherigen Kommentaren und Likes aktualisiert.</p>
                         </div>
 
                         <div class="pt-4 border-t border-gray-200 mt-2">
-                            <h4 class="font-bold text-gray-700 mb-3 sm:mb-4">Passwort ändern (optional)</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                            <h4 class="font-bold text-gray-700 mb-4">Passwort ändern (optional)</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1 sm:mb-2">Neues Passwort</label>
-                                    <input type="password" id="profileNewPassword" placeholder="Neues Passwort..." class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white text-sm" />
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort</label>
+                                    <input type="password" id="profileNewPassword" placeholder="Neues Passwort..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
                                 </div>
                                 <div>
-                                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1 sm:mb-2">Neues Passwort bestätigen</label>
-                                    <input type="password" id="profileConfirmPassword" placeholder="Passwort wiederholen..." class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white text-sm" />
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort bestätigen</label>
+                                    <input type="password" id="profileConfirmPassword" placeholder="Passwort wiederholen..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
                                 </div>
                             </div>
                             <p class="text-xs text-gray-500 mt-2">Lass diese Felder leer, wenn du dein aktuelles Passwort behalten möchtest.</p>
@@ -1220,62 +1171,62 @@
 
                         <div class="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-200">
                             <input type="checkbox" id="profileShowRealName" ${user.showRealName ? 'checked' : ''} class="w-5 h-5 cursor-pointer text-blue-600 rounded shrink-0" />
-                            <label for="profileShowRealName" class="font-bold text-gray-700 cursor-pointer text-xs sm:text-sm">Zeige meinen Vor- und Nachnamen anstelle des Benutzernamens</label>
+                            <label for="profileShowRealName" class="text-sm sm:text-base font-bold text-gray-700 cursor-pointer">Zeige meinen Vor- und Nachnamen anstelle des Benutzernamens</label>
                         </div>
 
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Profilbild</label>
-                            <div class="flex flex-col gap-3 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded">
+                            <div class="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-200 rounded">
                                 <div>
-                                    <label class="text-[10px] sm:text-xs text-gray-500 font-bold uppercase mb-1 block">Vom Gerät hochladen</label>
-                                    <input type="file" id="profilePicFile" accept="image/*" class="w-full px-2 py-2 sm:px-3 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500 text-xs sm:text-sm" />
+                                    <label class="text-xs text-gray-500 font-bold uppercase mb-1 block">Vom PC/Handy hochladen</label>
+                                    <input type="file" id="profilePicFile" accept="image/*" class="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500 text-sm" />
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <hr class="flex-1 border-gray-300"><span class="text-[10px] text-gray-400 font-bold uppercase">oder</span><hr class="flex-1 border-gray-300">
+                                    <hr class="flex-1 border-gray-300"><span class="text-xs text-gray-400 font-bold uppercase">oder</span><hr class="flex-1 border-gray-300">
                                 </div>
                                 <div>
-                                    <label class="text-[10px] sm:text-xs text-gray-500 font-bold uppercase mb-1 block">Bild-URL eingeben</label>
-                                    <input type="url" id="profilePicUrl" value="${urlValue}" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white text-xs sm:text-sm" placeholder="${isBase64 ? 'Eigenes Bild hochgeladen. Neue URL eingeben zum Ersetzen...' : 'https://beispiel.de/mein-bild.jpg'}" />
+                                    <label class="text-xs text-gray-500 font-bold uppercase mb-1 block">Bild-URL eingeben</label>
+                                    <input type="url" id="profilePicUrl" value="${urlValue}" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white text-sm" placeholder="${isBase64 ? 'Eigenes Bild hochgeladen. Neue URL eingeben zum Ersetzen...' : 'https://beispiel.de/mein-bild.jpg'}" />
                                 </div>
                                 ${user.profilePicUrl ? `
-                                <button onclick="window.clearProfilePic()" class="text-xs bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200 font-bold self-start mt-1 transition-colors cursor-pointer w-full sm:w-auto">Aktuelles Bild entfernen</button>
+                                <button onclick="clearProfilePic()" class="text-xs bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200 font-bold self-start mt-1 transition-colors cursor-pointer">Aktuelles Bild entfernen</button>
                                 ` : ''}
                             </div>
                         </div>
 
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Über mich (Bio)</label>
-                            <textarea id="profileBio" rows="4" class="w-full px-3 py-2 sm:px-4 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm sm:text-base" placeholder="Schreibe etwas über dich...">${user.bio || ''}</textarea>
+                            <textarea id="profileBio" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm" placeholder="Schreibe etwas über dich, deine Interessen oder warum du gerne Zeitung liest...">${user.bio || ''}</textarea>
                         </div>
                         
-                        <button onclick="window.saveProfile()" class="bg-blue-900 text-white font-bold py-3 px-4 rounded hover:bg-blue-800 transition-colors mt-2 cursor-pointer flex justify-center items-center gap-2 md:w-1/2 w-full">
-                            <i data-lucide="save" class="w-4 h-4 sm:w-5 sm:h-5"></i> Profil speichern
+                        <button onclick="saveProfile()" class="w-full md:w-1/2 bg-blue-900 text-white font-bold py-3 px-4 rounded hover:bg-blue-800 transition-colors mt-2 cursor-pointer flex justify-center items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i> Profil speichern
                         </button>
                         
-                        <div class="mt-4 pt-4 sm:pt-6 border-t border-red-200">
-                            <h4 class="text-red-600 font-bold mb-2 text-sm sm:text-base">Gefahrenzone</h4>
-                            <button onclick="window.confirmDeleteOwnAccount()" class="bg-white w-full sm:w-auto border border-red-300 text-red-600 font-bold py-2 px-4 rounded hover:bg-red-50 transition-colors text-sm cursor-pointer">Mein Konto dauerhaft löschen</button>
+                        <div class="mt-4 pt-6 border-t border-red-200">
+                            <h4 class="text-red-600 font-bold mb-2">Gefahrenzone</h4>
+                            <button onclick="confirmDeleteOwnAccount()" class="w-full sm:w-auto bg-white border border-red-300 text-red-600 font-bold py-2 px-4 rounded hover:bg-red-50 transition-colors text-sm cursor-pointer">Mein Konto dauerhaft löschen</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-6 sm:mt-8 bg-white p-4 sm:p-8 border border-gray-200 shadow-sm rounded-sm">
-                    <h3 class="text-xl sm:text-2xl font-black uppercase mb-4 sm:mb-6 border-b pb-2">Meine Aktivitäten</h3>
+                <div class="mt-8 bg-white p-5 sm:p-8 border border-gray-200 shadow-sm rounded-sm">
+                    <h3 class="text-xl sm:text-2xl font-black uppercase mb-6 border-b pb-2">Meine Aktivitäten</h3>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                         <div>
-                            <h4 class="font-bold flex items-center gap-2 mb-3 text-gray-700 text-sm sm:text-base"><i data-lucide="heart" class="w-4 h-4 text-red-500"></i> Gefällt mir (${likedArticles.length})</h4>
+                            <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700"><i data-lucide="heart" class="w-5 h-5 text-red-500 shrink-0"></i> Gefällt mir (${likedArticles.length})</h4>
                             <ul class="flex flex-col gap-2">
-                                ${likedArticles.length === 0 ? '<li class="text-gray-500 text-xs sm:text-sm italic">Noch keine Artikel gelikt.</li>' : likedArticles.map(a => `
-                                    <li><button onclick="window.openArticle(${a.id})" class="text-left text-xs sm:text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>
+                                ${likedArticles.length === 0 ? '<li class="text-gray-500 text-sm italic">Noch keine Artikel gelikt.</li>' : likedArticles.map(a => `
+                                    <li><button onclick="openArticle(${a.id})" class="text-left text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>
                                 `).join('')}
                             </ul>
                         </div>
                         <div>
-                            <h4 class="font-bold flex items-center gap-2 mb-3 text-gray-700 text-sm sm:text-base"><i data-lucide="eye" class="w-4 h-4 text-blue-500"></i> Zuletzt gelesen (${viewedArticles.length})</h4>
+                            <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700"><i data-lucide="eye" class="w-5 h-5 text-blue-500 shrink-0"></i> Zuletzt gelesen (${viewedArticles.length})</h4>
                             <ul class="flex flex-col gap-2">
-                                ${viewedArticles.length === 0 ? '<li class="text-gray-500 text-xs sm:text-sm italic">Noch keine Artikel gelesen.</li>' : viewedArticles.map(a => `
-                                    <li><button onclick="window.openArticle(${a.id})" class="text-left text-xs sm:text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>
+                                ${viewedArticles.length === 0 ? '<li class="text-gray-500 text-sm italic">Noch keine Artikel gelesen.</li>' : viewedArticles.map(a => `
+                                    <li><button onclick="openArticle(${a.id})" class="text-left text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>
                                 `).join('')}
                             </ul>
                         </div>
@@ -1301,16 +1252,16 @@
                     a.summary.toLowerCase().includes(query) || 
                     a.category.toLowerCase().includes(query)
                 );
-                titleHtml = `Suchergebnisse für "${searchQuery}"`;
+                titleHtml = `Suche: "${searchQuery}"`;
             }
 
             let html = `
-            <div class="max-w-4xl mx-auto bg-white p-4 sm:p-8 md:p-12 shadow-sm border border-gray-100 min-h-[50vh]">
-                <button onclick="window.setView('home'); isSearchOpen = false; renderApp();" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-4 sm:mb-6 hover:underline cursor-pointer">
+            <div class="max-w-4xl mx-auto bg-white p-4 sm:p-6 md:p-12 shadow-sm border border-gray-100 min-h-[50vh]">
+                <button onclick="setView('home'); isSearchOpen = false; renderApp();" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                 </button>
-                <h2 class="text-2xl sm:text-3xl font-black mb-2">${titleHtml}</h2>
-                <p class="mb-6 sm:mb-8 text-gray-600 font-sans font-bold text-sm sm:text-base">${results.length} Artikel in dieser Ansicht</p>
+                <h2 class="text-2xl sm:text-3xl font-black mb-2 truncate" title="${titleHtml}">${titleHtml}</h2>
+                <p class="mb-6 sm:mb-8 text-gray-600 font-sans font-bold text-sm sm:text-base">${results.length} Artikel gefunden</p>
                 <div class="flex flex-col gap-6 sm:gap-8">
             `;
 
@@ -1320,15 +1271,15 @@
                 results.forEach(article => {
                     const displayImage = article.imageUrl || getFallbackImage(article.category);
                     html += `
-                    <article onclick="window.openArticle(${article.id})" class="group cursor-pointer flex flex-col md:flex-row gap-4 sm:gap-6 border-b border-gray-200 pb-6 sm:pb-8 last:border-0">
-                        <img src="${displayImage}" alt="${article.title}" class="w-full md:w-48 h-40 sm:h-32 object-cover rounded-sm group-hover:opacity-90 transition-opacity" />
-                        <div class="flex-1">
-                            <span class="text-blue-700 font-bold text-[10px] sm:text-xs uppercase font-sans flex items-center gap-4 mb-2">
+                    <article onclick="openArticle(${article.id})" class="group cursor-pointer flex flex-col md:flex-row gap-4 sm:gap-6 border-b border-gray-200 pb-6 sm:pb-8 last:border-0">
+                        <img src="${displayImage}" alt="${article.title}" class="w-full md:w-48 h-40 md:h-32 object-cover rounded-sm group-hover:opacity-90 transition-opacity" />
+                        <div class="flex-1 min-w-0">
+                            <span class="text-blue-700 font-bold text-xs uppercase font-sans flex items-center gap-4 mb-2">
                                 ${article.category}
                                 <span class="text-gray-400 font-normal flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> ${article.views.length}</span>
                             </span>
                             <h3 class="text-lg sm:text-xl md:text-2xl font-bold leading-snug group-hover:text-blue-700 transition-colors mb-2">${article.title}</h3>
-                            <p class="text-xs sm:text-sm text-gray-600 line-clamp-2">${article.summary}</p>
+                            <p class="text-sm text-gray-600 line-clamp-2 sm:line-clamp-3">${article.summary}</p>
                         </div>
                     </article>`;
                 });
@@ -1340,19 +1291,19 @@
 
         function renderAdminLogin() {
             return `
-            <div class="max-w-md mx-auto bg-white p-6 sm:p-8 border border-gray-200 shadow-md rounded-sm mt-8 sm:mt-12 mx-4">
+            <div class="max-w-md mx-auto bg-white p-6 sm:p-8 border border-gray-200 shadow-md rounded-sm mt-8 sm:mt-12 mx-4 sm:mx-auto">
                 <div class="text-center mb-6">
-                    <i data-lucide="lock" class="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-blue-900 mb-2"></i>
+                    <i data-lucide="lock" class="mx-auto h-12 w-12 text-blue-900 mb-2"></i>
                     <h2 class="text-xl sm:text-2xl font-black uppercase font-sans">main-Admin Login</h2>
                 </div>
-                <form onsubmit="window.handleLogin(event)" class="flex flex-col gap-4 font-sans">
+                <form onsubmit="handleLogin(event)" class="flex flex-col gap-4 font-sans">
                     <div>
-                        <label class="block text-xs sm:text-sm font-bold mb-2">Master-Passwort</label>
+                        <label class="block text-sm font-bold mb-2">Master-Passwort</label>
                         <input type="password" id="adminPassword" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-600" placeholder="Passwort eingeben..." />
                     </div>
                     <p id="loginError" class="text-red-500 text-sm font-bold hidden">Falsches Passwort!</p>
                     <button type="submit" class="bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer">Anmelden</button>
-                    <p class="text-[10px] sm:text-xs text-gray-500 text-center mt-2">Hinweis: Als normaler Autor oder Admin reicht der normale Login-Button oben rechts.</p>
+                    <p class="text-xs text-gray-500 text-center mt-2">Hinweis: Als normaler Autor oder Admin reicht der normale Login-Button oben rechts.</p>
                 </form>
             </div>`;
         }
@@ -1380,47 +1331,47 @@
             <div class="max-w-6xl mx-auto bg-white shadow-md rounded-sm font-sans mt-4">
                 
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 sm:p-6 border-b border-gray-200 bg-gray-50 gap-4">
-                    <h2 class="text-2xl sm:text-3xl font-black uppercase flex items-center gap-2 sm:gap-3">
-                        <i data-lucide="${hasAdminAccess() ? 'shield' : 'pen-tool'}" class="w-6 h-6 sm:w-8 sm:h-8 text-blue-900"></i> ${hasAdminAccess() ? 'Admin-Zentrale' : 'Redaktions-Dashboard'}
+                    <h2 class="text-xl sm:text-3xl font-black uppercase flex items-center gap-2 sm:gap-3">
+                        <i data-lucide="${hasAdminAccess() ? 'shield' : 'pen-tool'}" class="w-6 h-6 sm:w-8 sm:h-8 text-blue-900 shrink-0"></i> ${hasAdminAccess() ? 'Admin-Zentrale' : 'Redaktions-Dashboard'}
                     </h2>
-                    <button onclick="window.exitDashboard()" class="text-gray-500 hover:text-red-600 font-bold flex items-center gap-1 cursor-pointer text-sm sm:text-base w-full sm:w-auto justify-start sm:justify-end">
-                        <i data-lucide="log-out" class="w-4 h-4"></i> Dashboard verlassen
+                    <button onclick="exitDashboard()" class="text-gray-500 hover:text-red-600 font-bold flex items-center gap-1 cursor-pointer text-sm w-full sm:w-auto justify-end">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Verlassen
                     </button>
                 </div>
 
-                <div class="flex gap-1 sm:gap-2 border-b border-gray-200 px-2 sm:px-6 pt-4 bg-gray-50 overflow-x-auto no-scrollbar whitespace-nowrap">
-                    <button onclick="adminTab='articles'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${adminTab === 'articles' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Artikel</button>
-                    ${hasAdminAccess() ? `<button onclick="adminTab='categories'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${adminTab === 'categories' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Ressorts</button>` : ''}
-                    ${hasAdminAccess() ? `<button onclick="adminTab='authors'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${adminTab === 'authors' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Autoren</button>` : ''}
-                    ${hasAdminAccess() ? `<button onclick="adminTab='users'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${(adminTab === 'users' || adminTab === 'userDetails') ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Benutzer</button>` : ''}
-                    ${hasAdminAccess() ? `<button onclick="adminTab='comments'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-1 sm:gap-2 ${adminTab === 'comments' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
-                        Kommentare <span class="bg-gray-200 text-gray-600 px-1 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs">${allComments.length}</span>
-                        ${pendingCommentCount > 0 ? `<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-[10px] sm:text-xs animate-pulse" title="${pendingCommentCount} warten auf Freigabe">${pendingCommentCount}</span>` : ''}
+                <div class="flex gap-1 border-b border-gray-200 px-2 sm:px-6 pt-4 bg-gray-50 overflow-x-auto scrollbar-hide flex-nowrap">
+                    <button onclick="adminTab='articles'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${adminTab === 'articles' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Artikel</button>
+                    ${hasAdminAccess() ? `<button onclick="adminTab='categories'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${adminTab === 'categories' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Ressorts</button>` : ''}
+                    ${hasAdminAccess() ? `<button onclick="adminTab='authors'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${adminTab === 'authors' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Autoren</button>` : ''}
+                    ${hasAdminAccess() ? `<button onclick="adminTab='users'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t ${(adminTab === 'users' || adminTab === 'userDetails') ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Benutzer</button>` : ''}
+                    ${hasAdminAccess() ? `<button onclick="adminTab='comments'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-2 ${adminTab === 'comments' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                        Kommentare <span class="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs">${allComments.length}</span>
+                        ${pendingCommentCount > 0 ? `<span class="bg-orange-500 text-white px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs animate-pulse" title="${pendingCommentCount} warten auf Freigabe">${pendingCommentCount}</span>` : ''}
                     </button>` : ''}
-                    ${hasAdminAccess() ? `<button onclick="adminTab='feedback'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-1 sm:gap-2 ${adminTab === 'feedback' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
-                        Bewertungen <span class="bg-gray-200 text-gray-600 px-1 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs">${siteFeedbacks.length}</span>
-                        ${pendingFeedbackCount > 0 ? `<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-[10px] sm:text-xs animate-pulse" title="${pendingFeedbackCount} warten auf Freigabe">${pendingFeedbackCount}</span>` : ''}
+                    ${hasAdminAccess() ? `<button onclick="adminTab='feedback'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-2 ${adminTab === 'feedback' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                        Bewertungen <span class="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs">${siteFeedbacks.length}</span>
+                        ${pendingFeedbackCount > 0 ? `<span class="bg-orange-500 text-white px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs animate-pulse" title="${pendingFeedbackCount} warten auf Freigabe">${pendingFeedbackCount}</span>` : ''}
                     </button>` : ''}
-                    ${hasAdminAccess() ? `<button onclick="adminTab='support'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-1 sm:gap-2 ${adminTab === 'support' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
-                        Support <span class="bg-gray-200 text-gray-600 px-1 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs">${supportChats.length}</span>
+                    ${hasAdminAccess() ? `<button onclick="adminTab='support'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-2 ${adminTab === 'support' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                        Support <span class="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs">${supportChats.length}</span>
                     </button>` : ''}
-                    ${hasAdminAccess() ? `<button onclick="adminTab='backup'; window.renderApp()" class="px-4 sm:px-6 py-2 sm:py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-1 sm:gap-2 ${adminTab === 'backup' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                    ${hasAdminAccess() ? `<button onclick="adminTab='backup'; renderApp()" class="shrink-0 px-4 sm:px-6 py-3 font-bold uppercase text-xs sm:text-sm rounded-t flex items-center gap-2 ${adminTab === 'backup' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
                         <i data-lucide="database" class="w-3 h-3 sm:w-4 sm:h-4"></i> Backup
                     </button>` : ''}
                 </div>
 
-                <div class="p-4 sm:p-6 md:p-8 overflow-x-hidden">
+                <div class="p-4 sm:p-6 md:p-8">
                     ${adminTab === 'categories' && hasAdminAccess() ? `
-                        <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2 border-b pb-2"><i data-lucide="layers" class="text-blue-600 w-5 h-5"></i> Ressorts verwalten</h3>
+                        <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2 border-b pb-2"><i data-lucide="layers" class="text-blue-600"></i> Ressorts verwalten</h3>
                         
-                        <div class="bg-blue-50 p-3 sm:p-4 rounded text-xs sm:text-sm text-gray-700 flex items-start gap-3 mb-4 sm:mb-6 border border-blue-100">
-                            <i data-lucide="info" class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0"></i>
+                        <div class="bg-blue-50 p-3 sm:p-4 rounded text-xs sm:text-sm text-gray-700 flex items-start gap-3 mb-6 border border-blue-100">
+                            <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0"></i>
                             <p>Hier kannst du neue Ressorts anlegen. Du kannst ein Ressort nur löschen, wenn kein Artikel mehr damit verknüpft ist.</p>
                         </div>
 
-                        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
-                            <input type="text" id="newCategoryInput" placeholder="Name des neuen Ressorts..." class="flex-1 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm sm:text-base" onkeypress="if(event.key === 'Enter') window.addCategory()" />
-                            <button onclick="window.addCategory()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base">
+                        <div class="flex flex-col sm:flex-row gap-3 mb-6 sm:mb-8">
+                            <input type="text" id="newCategoryInput" placeholder="Name des neuen Ressorts..." class="flex-1 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm" onkeypress="if(event.key === 'Enter') addCategory()" />
+                            <button onclick="addCategory()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors flex justify-center items-center gap-2 cursor-pointer text-sm">
                                 <i data-lucide="plus" class="w-4 h-4"></i> Hinzufügen
                             </button>
                         </div>
@@ -1430,14 +1381,14 @@
                                 const usedInArticles = articles.filter(a => a.category === cat);
                                 const isInUse = usedInArticles.length > 0;
                                 return `
-                                    <li class="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 gap-2">
+                                    <li class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 gap-3">
                                         <span class="font-bold text-base sm:text-lg text-blue-900">${cat}</span>
                                         ${isInUse ? `
-                                            <span class="text-[10px] sm:text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full font-bold flex items-center gap-1 w-fit">
+                                            <span class="text-[10px] sm:text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full font-bold flex items-center gap-1">
                                                 <i data-lucide="lock" class="w-3 h-3"></i> in ${usedInArticles.length} Artikel(n) genutzt
                                             </span>
                                         ` : `
-                                            <button onclick="window.deleteCategory('${cat}')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded transition-colors cursor-pointer flex items-center justify-center gap-1 text-xs sm:text-sm font-bold w-full sm:w-auto">
+                                            <button onclick="deleteCategory('${cat}')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded transition-colors cursor-pointer flex items-center gap-1 text-xs sm:text-sm font-bold w-full sm:w-auto justify-center">
                                                 <i data-lucide="trash-2" class="w-4 h-4"></i> Löschen
                                             </button>
                                         `}
@@ -1448,59 +1399,59 @@
 
                     ` : adminTab === 'authors' && hasAdminAccess() ? `
                         <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2 border-b pb-2">
-                            <i data-lucide="${editingAuthorId ? 'edit' : 'user-plus'}" class="text-blue-600 w-5 h-5"></i> 
+                            <i data-lucide="${editingAuthorId ? 'edit' : 'user-plus'}" class="text-blue-600"></i> 
                             ${editingAuthorId ? 'Autor bearbeiten' : 'Neuen Autor hinzufügen'}
                         </h3>
                         
-                        <form onsubmit="window.handleSaveAuthor(event)" class="flex flex-col gap-4 sm:gap-6 font-sans mb-8 sm:mb-12">
+                        <form onsubmit="handleSaveAuthor(event)" class="flex flex-col gap-4 sm:gap-6 font-sans mb-8 sm:mb-12">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 <div>
-                                    <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Name des Autors</label>
+                                    <label class="block text-sm font-bold mb-1.5 sm:mb-2 text-gray-700">Name des Autors</label>
                                     <input required type="text" id="author-name" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm" />
                                 </div>
                                 <div>
-                                    <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Profilbild (Optional)</label>
+                                    <label class="block text-sm font-bold mb-1.5 sm:mb-2 text-gray-700">Profilbild (Optional)</label>
                                     <div class="flex flex-col gap-2 p-2 sm:p-3 bg-gray-50 border border-gray-200 rounded">
                                         <input type="file" id="author-image-file" accept="image/*" class="w-full px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm bg-white" />
-                                        <span class="text-[10px] text-center text-gray-400 uppercase font-bold">oder URL</span>
-                                        <input type="url" id="author-image-url" placeholder="https://..." class="w-full px-2 sm:px-3 py-1.5 border border-gray-300 rounded text-xs sm:text-sm focus:outline-none focus:border-blue-500" />
+                                        <span class="text-[10px] sm:text-xs text-center text-gray-400 uppercase font-bold">oder URL</span>
+                                        <input type="url" id="author-image-url" placeholder="https://..." class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs sm:text-sm focus:outline-none focus:border-blue-500" />
                                     </div>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Biografie / Über den Autor</label>
+                                <label class="block text-sm font-bold mb-1.5 sm:mb-2 text-gray-700">Biografie / Über den Autor</label>
                                 <textarea required rows="3" id="author-bio" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm"></textarea>
                             </div>
-                            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-2">
-                                ${editingAuthorId ? `<button type="button" onclick="window.cancelAuthorEdit()" class="w-full sm:w-auto px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded hover:bg-gray-100 transition-colors shadow-sm cursor-pointer text-sm">Abbrechen</button>` : ''}
-                                <button type="submit" class="w-full sm:w-auto px-6 sm:px-8 py-2.5 bg-blue-700 text-white font-bold rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer text-sm">
+                            <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 mt-2">
+                                ${editingAuthorId ? `<button type="button" onclick="cancelAuthorEdit()" class="w-full sm:w-auto px-6 py-2 sm:py-3 border border-gray-300 text-gray-700 font-bold rounded hover:bg-gray-100 transition-colors shadow-sm cursor-pointer text-sm">Abbrechen</button>` : ''}
+                                <button type="submit" class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-blue-700 text-white font-bold rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer text-sm">
                                     ${editingAuthorId ? 'Änderungen speichern' : 'Autor hinzufügen'}
                                 </button>
                             </div>
                         </form>
 
-                        <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 border-b pb-2 flex items-center gap-2"><i data-lucide="users" class="text-gray-600 w-5 h-5"></i> Vorhandene Autoren</h3>
+                        <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 border-b pb-2 flex items-center gap-2"><i data-lucide="users" class="text-gray-600"></i> Vorhandene Autoren</h3>
                         <div class="flex flex-col gap-3">
                             ${getActiveAuthors().map(a => {
                                 const usedInArticles = articles.filter(art => art.author === a.name);
                                 const isUserLinked = String(a.id).startsWith('usr_');
                                 return `
-                                    <div class="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 gap-3">
-                                        <div class="flex items-center gap-3 w-full">
+                                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 gap-3">
+                                        <div class="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
                                             ${a.imageUrl ? `
                                                 <img src="${a.imageUrl}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border border-gray-300 shrink-0" onerror="this.outerHTML='${getStandardAvatarHtml('w-10 h-10 sm:w-12 sm:h-12', 'w-5 h-5 sm:w-6 sm:h-6').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
                                             ` : getStandardAvatarHtml('w-10 h-10 sm:w-12 sm:h-12', 'w-5 h-5 sm:w-6 sm:h-6')}
-                                            <div class="flex-1 overflow-hidden">
+                                            <div class="flex-1 min-w-0">
                                                 <span class="font-bold text-base sm:text-lg text-blue-900 block truncate">${a.name}</span>
                                                 <p class="text-[10px] sm:text-xs text-gray-500">${usedInArticles.length} Artikel verfasst</p>
                                             </div>
                                         </div>
-                                        <div class="flex gap-2 items-center w-full sm:w-auto justify-end border-t sm:border-0 pt-2 sm:pt-0 border-gray-200 mt-1 sm:mt-0">
+                                        <div class="flex gap-2 items-center w-full sm:w-auto justify-end border-t sm:border-0 border-gray-200 pt-2 sm:pt-0">
                                             ${isUserLinked ? `
                                                 <span class="text-[10px] sm:text-xs text-blue-800 bg-blue-100 px-2 py-1 rounded font-bold" title="Wird über das Benutzerprofil verwaltet">Benutzer-Account</span>
                                             ` : `
-                                                <button onclick="window.editAuthor(${a.id})" class="flex-1 sm:flex-none text-center sm:text-left text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-100 rounded transition-colors cursor-pointer" title="Bearbeiten"><i data-lucide="edit" class="w-4 h-4 sm:w-5 sm:h-5 inline-block"></i></button>
-                                                <button onclick="window.deleteAuthor(${a.id})" class="flex-1 sm:flex-none text-center sm:text-left text-red-500 hover:text-red-700 p-2 hover:bg-red-100 rounded transition-colors cursor-pointer" title="Löschen"><i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block"></i></button>
+                                                <button onclick="editAuthor(${a.id})" class="text-blue-600 hover:text-blue-800 p-1.5 sm:p-2 hover:bg-blue-100 rounded transition-colors cursor-pointer" title="Bearbeiten"><i data-lucide="edit" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
+                                                <button onclick="deleteAuthor(${a.id})" class="text-red-500 hover:text-red-700 p-1.5 sm:p-2 hover:bg-red-100 rounded transition-colors cursor-pointer" title="Löschen"><i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
                                             `}
                                         </div>
                                     </div>
@@ -1518,108 +1469,110 @@
                         }
                         return `
                         <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2 border-b pb-2">
-                            <i data-lucide="${editingArticleId ? 'edit' : 'plus-circle'}" class="text-blue-600 w-5 h-5"></i> 
+                            <i data-lucide="${editingArticleId ? 'edit' : 'plus-circle'}" class="text-blue-600"></i> 
                             ${editingArticleId ? 'Artikel bearbeiten' : 'Neuen Artikel verfassen'}
                         </h3>
-                        <form onsubmit="window.handleCreateArticle(event)" class="flex flex-col gap-4 sm:gap-6 font-sans">
+                        <form onsubmit="handleCreateArticle(event)" class="flex flex-col gap-4 sm:gap-6 font-sans">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 <div>
                                     <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Überschrift (Title)</label>
-                                    <input required type="text" id="new-title" class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm" />
+                                    <input required type="text" id="new-title" class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm sm:text-base" />
                                 </div>
                                 <div class="grid grid-cols-2 gap-3 sm:gap-4">
                                     <div>
                                         <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Ressort</label>
-                                        <select required id="new-category" class="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm">
+                                        <select required id="new-category" class="w-full px-2 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm">
                                             <option value="">Wählen...</option>
                                             ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
                                         </select>
                                     </div>
                                     <div>
                                         <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Autor</label>
-                                        <select required id="new-author" class="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm">
+                                        <select required id="new-author" class="w-full px-2 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm">
                                             ${getActiveAuthors().map(a => `<option value="${a.name}" ${a.name === defaultAuth ? 'selected' : ''}>${a.name}</option>`).join('')}
                                         </select>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div class="flex items-center gap-2 sm:gap-3 bg-red-50 p-3 sm:p-4 rounded border border-red-200">
+                            <div class="flex items-center gap-3 bg-red-50 p-3 sm:p-4 rounded border border-red-200">
                                 <input type="checkbox" id="new-eilmeldung" class="w-4 h-4 sm:w-5 sm:h-5 cursor-pointer text-red-600 rounded shrink-0" />
                                 <label for="new-eilmeldung" class="font-bold text-red-800 cursor-pointer flex items-center gap-2 text-xs sm:text-sm">
-                                    <i data-lucide="alert-triangle" class="w-4 h-4 sm:w-5 sm:h-5"></i> Eilmeldung (verschwindet automatisch nach 24h)
+                                    <i data-lucide="alert-triangle" class="w-4 h-4 sm:w-5 sm:h-5 shrink-0"></i> Als Eilmeldung markieren (verschwindet automatisch nach 24h)
                                 </label>
                             </div>
                             
                             <div>
                                 <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Zusammenfassung (Teaser)</label>
-                                <textarea required rows="2" id="new-summary" class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm"></textarea>
+                                <textarea required rows="2" id="new-summary" class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm sm:text-base"></textarea>
                             </div>
                             
                             <div>
-                                <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Bild (Optional, Platzhalter wenn leer)</label>
-                                <div class="flex flex-col gap-2 p-3 sm:p-4 bg-gray-50 border border-gray-300 rounded">
+                                <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Bild (Optional, falls leer wird ein Platzhalter ergänzt)</label>
+                                <div class="flex flex-col gap-2 sm:gap-3 p-3 sm:p-4 bg-gray-50 border border-gray-300 rounded">
                                     <div>
-                                        <label class="text-[10px] sm:text-xs text-gray-500 font-bold uppercase mb-1 block">Vom Gerät hochladen</label>
+                                        <label class="text-[10px] sm:text-xs text-gray-500 font-bold uppercase mb-1 block">Vom PC/Handy hochladen</label>
                                         <input type="file" id="new-image-file" accept="image/*" class="w-full px-2 py-1.5 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500 cursor-pointer text-xs sm:text-sm" />
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <hr class="flex-1 border-gray-300"><span class="text-[10px] text-gray-400 font-bold uppercase">oder</span><hr class="flex-1 border-gray-300">
+                                        <hr class="flex-1 border-gray-300"><span class="text-[10px] sm:text-xs text-gray-400 font-bold uppercase">oder</span><hr class="flex-1 border-gray-300">
                                     </div>
                                     <div>
                                         <label class="text-[10px] sm:text-xs text-gray-500 font-bold uppercase mb-1 block">Bild-URL eingeben</label>
-                                        <input type="url" id="new-image-url" class="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500 text-xs sm:text-sm" placeholder="https://..." />
+                                        <input type="url" id="new-image-url" class="w-full px-3 py-1.5 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500 text-xs sm:text-sm" placeholder="https://..." />
                                     </div>
                                 </div>
                             </div>
                             
                             <div>
                                 <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Automatisches Löschdatum (Optional)</label>
-                                <input type="datetime-local" id="new-autodelete" class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm" />
-                                <p class="text-[10px] sm:text-xs text-gray-500 mt-1">Nach diesem Datum wird der Artikel automatisch ausgeblendet.</p>
+                                <input type="datetime-local" id="new-autodelete" class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm sm:text-base" />
+                                <p class="text-[10px] sm:text-xs text-gray-500 mt-1">Nach diesem Datum wird der Artikel für Leser automatisch ausgeblendet.</p>
                             </div>
                             
                             <div>
                                 <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Vollständiger Artikeltext</label>
-                                <textarea required rows="6" id="new-content" class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 font-serif text-base sm:text-lg"></textarea>
+                                <textarea required rows="6" id="new-content" class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 font-serif text-base sm:text-lg"></textarea>
                             </div>
                             
                             <div>
                                 <label class="block text-xs sm:text-sm font-bold mb-1 sm:mb-2 text-gray-700">Quellen-Links (Optional)</label>
-                                <input type="text" id="new-sources" class="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm" placeholder="https://quelle1.ch, https://quelle2.ch (mit Komma trennen)" />
+                                <input type="text" id="new-sources" class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 text-sm sm:text-base" placeholder="https://quelle1.ch, https://quelle2.ch (mit Komma trennen)" />
                             </div>
 
-                            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-2">
-                                ${editingArticleId ? `<button type="button" onclick="window.cancelEdit()" class="w-full sm:w-auto px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded hover:bg-gray-100 transition-colors shadow-sm cursor-pointer text-sm">Abbrechen</button>` : ''}
-                                <button type="submit" class="w-full sm:w-auto px-6 sm:px-8 py-2.5 bg-blue-700 text-white font-bold rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer text-sm">
+                            <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 mt-2">
+                                ${editingArticleId ? `<button type="button" onclick="cancelEdit()" class="w-full sm:w-auto px-6 py-2.5 sm:py-3 border border-gray-300 text-gray-700 font-bold rounded hover:bg-gray-100 transition-colors shadow-sm cursor-pointer text-sm">Abbrechen</button>` : ''}
+                                <button type="submit" class="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-blue-700 text-white font-bold rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer text-sm">
                                     ${editingArticleId ? 'Änderungen speichern' : 'Artikel veröffentlichen'}
                                 </button>
                             </div>
                         </form>
 
                         <div class="mt-8 sm:mt-12 border-t pt-6 sm:pt-8">
-                            <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2"><i data-lucide="file-text" class="text-gray-600 w-5 h-5"></i> Vorhandene Artikel</h3>
-                            <div class="flex flex-col sm:flex-row gap-3 mb-6">
-                                <button onclick="window.exportArticles()" class="bg-green-700 text-white px-4 py-2 rounded font-bold hover:bg-green-600 flex items-center justify-center gap-2 cursor-pointer shadow-sm w-full sm:w-auto text-sm"><i data-lucide="download" class="w-4 h-4"></i> Exportieren (.txt)</button>
-                                <label class="bg-purple-700 text-white px-4 py-2 rounded font-bold hover:bg-purple-600 flex items-center justify-center gap-2 cursor-pointer shadow-sm w-full sm:w-auto text-sm">
+                            <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2"><i data-lucide="file-text" class="text-gray-600"></i> Vorhandene Artikel</h3>
+                            <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-6">
+                                <button onclick="exportArticles()" class="w-full sm:w-auto bg-green-700 text-white px-4 py-2 rounded font-bold hover:bg-green-600 flex justify-center items-center gap-2 cursor-pointer shadow-sm text-sm"><i data-lucide="download" class="w-4 h-4"></i> Exportieren (.txt)</button>
+                                <label class="w-full sm:w-auto bg-purple-700 text-white px-4 py-2 rounded font-bold hover:bg-purple-600 flex justify-center items-center gap-2 cursor-pointer shadow-sm text-sm">
                                     <i data-lucide="upload" class="w-4 h-4"></i> Importieren (.txt)
-                                    <input type="file" accept=".txt" class="hidden" onchange="window.importArticles(event)" />
+                                    <input type="file" accept=".txt" class="hidden" onchange="importArticles(event)" />
                                 </label>
                             </div>
-                            <div class="flex flex-col gap-3">
+                            <div class="flex flex-col gap-3 sm:gap-4">
                                 ${articles.length === 0 ? '<p class="text-gray-500 italic text-sm">Keine Artikel vorhanden.</p>' : ''}
                                 ${articles.map(a => {
                                     const isExpired = a.autoDeleteDate && new Date(a.autoDeleteDate) <= new Date();
                                     return `
-                                    <div class="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 ${isExpired ? 'opacity-60' : ''} gap-2">
-                                        <div class="flex-1 pr-0 sm:pr-4 w-full">
-                                            <span class="text-[10px] sm:text-xs font-bold text-gray-500 uppercase">${a.category}</span>
-                                            ${a.autoDeleteDate ? `<span class="ml-2 text-[8px] sm:text-[10px] px-2 py-0.5 rounded ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'} font-bold uppercase" title="Automatisches Löschdatum">Ablauf: ${new Date(a.autoDeleteDate).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}</span>` : ''}
-                                            <h4 class="font-bold text-sm sm:text-lg leading-tight mt-1 line-clamp-2">${a.title}</h4>
+                                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 gap-3 ${isExpired ? 'opacity-60' : ''}">
+                                        <div class="flex-1 pr-0 sm:pr-4 w-full sm:w-auto">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="text-[10px] sm:text-xs font-bold text-gray-500 uppercase">${a.category}</span>
+                                                ${a.autoDeleteDate ? `<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'} font-bold uppercase" title="Automatisches Löschdatum">Ablauf: ${new Date(a.autoDeleteDate).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}</span>` : ''}
+                                            </div>
+                                            <h4 class="font-bold text-base sm:text-lg leading-tight mt-1 line-clamp-2 sm:line-clamp-1">${a.title}</h4>
                                         </div>
-                                        <div class="flex gap-2 w-full sm:w-auto justify-end border-t sm:border-0 pt-2 sm:pt-0 mt-1 sm:mt-0 border-gray-200">
-                                            <button onclick="window.editArticle(${a.id})" class="flex-1 sm:flex-none text-center sm:text-left text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-100 rounded transition-colors cursor-pointer" title="Artikel bearbeiten"><i data-lucide="edit" class="w-4 h-4 sm:w-5 sm:h-5 inline-block"></i></button>
-                                            <button onclick="window.deleteArticle(${a.id})" class="flex-1 sm:flex-none text-center sm:text-left text-red-500 hover:text-red-700 p-2 hover:bg-red-100 rounded transition-colors cursor-pointer" title="Artikel löschen"><i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block"></i></button>
+                                        <div class="flex gap-2 w-full sm:w-auto justify-end border-t sm:border-0 border-gray-200 pt-2 sm:pt-0">
+                                            <button onclick="editArticle(${a.id})" class="text-blue-600 hover:text-blue-800 p-1.5 sm:p-2 hover:bg-blue-100 rounded transition-colors cursor-pointer" title="Artikel bearbeiten"><i data-lucide="edit" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
+                                            <button onclick="deleteArticle(${a.id})" class="text-red-500 hover:text-red-700 p-1.5 sm:p-2 hover:bg-red-100 rounded transition-colors cursor-pointer" title="Artikel löschen"><i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
                                         </div>
                                     </div>
                                 `;
@@ -1629,29 +1582,29 @@
 
                     `; })() : adminTab === 'users' && hasAdminAccess() ? `
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 mb-4 sm:mb-6 gap-3">
-                            <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2"><i data-lucide="users" class="text-blue-600 w-5 h-5"></i> Registrierte Benutzer (${registeredUsers.length})</h3>
-                            <button onclick="window.exportUsers()" class="w-full sm:w-auto bg-blue-700 text-white px-4 py-2 rounded font-bold hover:bg-blue-600 flex items-center justify-center gap-2 cursor-pointer shadow-sm text-sm"><i data-lucide="download" class="w-4 h-4"></i> Liste exportieren</button>
+                            <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2"><i data-lucide="users" class="text-blue-600"></i> Registrierte Benutzer (${registeredUsers.length})</h3>
+                            <button onclick="exportUsers()" class="w-full sm:w-auto bg-blue-700 text-white px-4 py-2 rounded font-bold hover:bg-blue-600 flex justify-center items-center gap-2 cursor-pointer shadow-sm text-sm"><i data-lucide="download" class="w-4 h-4"></i> Liste exportieren</button>
                         </div>
                         
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                             ${registeredUsers.length === 0 ? '<p class="text-gray-500 italic text-sm">Noch keine Benutzer registriert.</p>' : ''}
                             ${registeredUsers.map(u => `
-                                <div class="border ${u.isBanned || u.isDeleted ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 relative overflow-hidden">
-                                    <div class="absolute top-2 right-2 flex gap-1 z-10">
-                                        ${u.isDeleted ? '<span class="bg-gray-600 text-white text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Gelöscht</span>' : ''}
-                                        ${u.isBanned ? '<span class="bg-red-600 text-white text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Gesperrt</span>' : ''}
+                                <div class="border ${u.isBanned || u.isDeleted ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded p-3 sm:p-4 flex flex-row gap-3 sm:gap-4 relative">
+                                    <div class="absolute top-1 sm:top-2 right-1 sm:right-2 flex gap-1">
+                                        ${u.isDeleted ? '<span class="bg-gray-600 text-white text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Gelöscht</span>' : ''}
+                                        ${u.isBanned ? '<span class="bg-red-600 text-white text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Gesperrt</span>' : ''}
                                     </div>
-                                    <div class="relative shrink-0 flex justify-center sm:block">
+                                    <div class="relative shrink-0 mt-2 sm:mt-0">
                                         ${getUserAvatar(u.username, 'w-10 h-10 sm:w-12 sm:h-12', 'w-5 h-5 sm:w-6 sm:h-6', false)}
                                         <span class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] sm:text-[9px] font-bold uppercase bg-blue-100 text-blue-800 px-1 rounded border border-blue-200">${u.role}</span>
                                     </div>
-                                    <div class="flex-1 mt-3 sm:mt-0 w-full overflow-hidden">
-                                        <h4 class="font-bold text-base sm:text-lg text-blue-900 truncate">${u.username}</h4>
-                                        <p class="text-xs sm:text-sm text-gray-600 mb-2 truncate">
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="font-bold text-base sm:text-lg text-blue-900 truncate pr-16">${u.username}</h4>
+                                        <p class="text-[10px] sm:text-xs text-gray-600 mb-2 truncate">
                                             ${u.firstName || u.lastName ? `${u.firstName} ${u.lastName}` : '<span class="italic text-gray-400">Kein Name</span>'} 
-                                            | ${u.email || '<span class="italic text-gray-400">Keine E-Mail</span>'}
+                                            <span class="hidden sm:inline">|</span><br class="sm:hidden" /> ${u.email || '<span class="italic text-gray-400">Keine E-Mail</span>'}
                                         </p>
-                                        <button onclick="window.viewUserDetails('${u.username}')" class="mt-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs sm:text-sm font-bold px-4 py-2 rounded hover:bg-blue-100 transition-colors w-full sm:w-auto">Verwalten</button>
+                                        <button onclick="viewUserDetails('${u.username}')" class="bg-blue-50 border border-blue-200 text-blue-800 text-xs sm:text-sm font-bold px-3 py-1.5 rounded hover:bg-blue-100 transition-colors w-full sm:w-auto">Verwalten</button>
                                     </div>
                                 </div>
                             `).join('')}
@@ -1675,44 +1628,40 @@
                             
                             return `
                                 <div class="mb-4 sm:mb-6">
-                                    <button onclick="adminTab='users'; window.renderApp()" class="text-blue-600 hover:underline flex items-center gap-1 font-bold text-sm"><i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Benutzerliste</button>
+                                    <button onclick="adminTab='users'; renderApp()" class="text-blue-600 hover:underline flex items-center gap-1 font-bold text-sm"><i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Liste</button>
                                 </div>
-                                <div class="bg-gray-50 p-4 sm:p-6 rounded border border-gray-200 mb-6 sm:mb-8 flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start text-center sm:text-left">
-                                    ${getUserAvatar(u.username, 'w-20 h-20 sm:w-24 sm:h-24', 'w-10 h-10 sm:w-12 sm:h-12', true)}
-                                    <div class="flex-1 w-full overflow-hidden">
-                                        <h3 class="text-xl sm:text-2xl font-black text-blue-900 mb-1 flex flex-col sm:flex-row items-center gap-2 truncate justify-center sm:justify-start">
-                                            <span class="truncate">${u.username}</span>
-                                            ${u.isBanned ? '<span class="text-[10px] sm:text-xs bg-red-600 text-white px-2 py-1 rounded">GESPERRT</span>' : ''} 
-                                            ${u.isDeleted ? '<span class="text-[10px] sm:text-xs bg-gray-600 text-white px-2 py-1 rounded">GELÖSCHT</span>' : ''}
-                                        </h3>
-                                        <div class="text-xs sm:text-sm text-gray-700 mt-2">
-                                            <p class="truncate"><span class="font-bold">Name:</span> ${u.firstName || '-'} ${u.lastName || '-'}</p>
-                                            <p class="truncate"><span class="font-bold">E-Mail:</span> ${u.email || '-'}</p>
-                                            <p class="truncate"><span class="font-bold">Anzeige:</span> ${u.showRealName ? 'Echter Name' : 'Benutzername'}</p>
-                                        </div>
+                                <div class="bg-gray-50 p-4 sm:p-6 rounded border border-gray-200 mb-6 sm:mb-8 flex flex-col md:flex-row gap-4 sm:gap-6 items-start">
+                                    ${getUserAvatar(u.username, 'w-16 h-16 sm:w-24 sm:h-24', 'w-8 h-8 sm:w-12 sm:h-12', true)}
+                                    <div class="flex-1 w-full">
+                                        <h3 class="text-xl sm:text-2xl font-black text-blue-900 mb-1 break-all">${u.username} ${u.isBanned ? '<span class="text-[10px] sm:text-sm bg-red-600 text-white px-2 py-0.5 sm:py-1 rounded ml-2 align-middle">GESPERRT</span>' : ''} ${u.isDeleted ? '<span class="text-[10px] sm:text-sm bg-gray-600 text-white px-2 py-0.5 sm:py-1 rounded ml-2 align-middle">GELÖSCHT</span>' : ''}</h3>
+                                        <p class="text-xs sm:text-sm text-gray-700 mt-1"><span class="font-bold">Echter Name:</span> ${u.firstName || '-'} ${u.lastName || '-'}</p>
+                                        <p class="text-xs sm:text-sm text-gray-700 truncate"><span class="font-bold">E-Mail:</span> ${u.email || '-'}</p>
+                                        <p class="text-xs sm:text-sm text-gray-700"><span class="font-bold">Anzeige-Modus:</span> ${u.showRealName ? 'Zeigt echten Namen' : 'Zeigt Benutzernamen'}</p>
                                         
-                                        <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                                            <span class="font-bold text-xs sm:text-sm text-gray-700">Rolle:</span>
-                                            <select onchange="window.changeUserRole('${u.username}', this.value)" class="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm bg-white cursor-pointer font-bold focus:outline-none focus:border-blue-500 w-full sm:w-auto">
+                                        <p class="text-xs sm:text-sm text-gray-700 mt-2 flex items-center gap-2">
+                                            <span class="font-bold">Rolle ändern:</span>
+                                            <select onchange="changeUserRole('${u.username}', this.value)" class="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm bg-white cursor-pointer font-bold focus:outline-none focus:border-blue-500">
                                                 <option value="user" ${u.role === 'user' ? 'selected' : ''}>Benutzer</option>
                                                 <option value="author" ${u.role === 'author' ? 'selected' : ''}>Autor</option>
                                                 <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
                                             </select>
-                                        </div>
+                                        </p>
+
+                                        <p class="text-xs sm:text-sm text-gray-700 mt-2"><span class="font-bold">Passwort:</span> <span class="bg-gray-200 px-2 py-0.5 rounded font-mono text-[10px] sm:text-sm">Firebase Auth</span> <span class="text-[9px] sm:text-[10px] text-gray-500 ml-1 sm:ml-2 uppercase font-bold">(nicht in App)</span></p>
                                         
-                                        ${u.bio ? `<p class="text-xs sm:text-sm bg-white border border-gray-200 p-2 sm:p-3 rounded text-gray-700 mt-3 italic break-words">"${u.bio}"</p>` : ''}
+                                        ${u.bio ? `<p class="text-xs sm:text-sm bg-white border border-gray-200 p-2 sm:p-3 rounded text-gray-700 mt-3 italic">"${u.bio}"</p>` : ''}
                                         
                                         <div class="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
-                                            <button onclick="window.toggleUserBan('${u.username}')" class="w-full sm:w-auto justify-center ${u.isBanned ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-500 hover:bg-orange-600'} text-white font-bold py-2 px-4 rounded text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-2">
+                                            <button onclick="toggleUserBan('${u.username}')" class="w-full sm:w-auto justify-center ${u.isBanned ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-500 hover:bg-orange-600'} text-white font-bold py-2 px-3 sm:px-4 rounded text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-2">
                                                 <i data-lucide="${u.isBanned ? 'check-circle' : 'ban'}" class="w-4 h-4"></i>
-                                                ${u.isBanned ? 'Entsperren' : 'Sperren'}
+                                                ${u.isBanned ? 'Account entsperren' : 'Account sperren'}
                                             </button>
-                                            <button onclick="window.toggleUserDeleted('${u.username}')" class="w-full sm:w-auto justify-center ${u.isDeleted ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white font-bold py-2 px-4 rounded text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-2">
+                                            <button onclick="toggleUserDeleted('${u.username}')" class="w-full sm:w-auto justify-center ${u.isDeleted ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white font-bold py-2 px-3 sm:px-4 rounded text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-2">
                                                 <i data-lucide="${u.isDeleted ? 'check-circle' : 'trash-2'}" class="w-4 h-4"></i>
-                                                ${u.isDeleted ? 'Wiederherstellen' : 'Löschen'}
+                                                ${u.isDeleted ? 'Konto wiederherstellen' : 'Konto löschen'}
                                             </button>
                                             ${u.isDeleted ? `
-                                            <button onclick="window.permanentlyDeleteUser('${u.username}')" class="w-full sm:w-auto justify-center bg-red-900 hover:bg-red-950 text-white font-bold py-2 px-4 rounded text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-2">
+                                            <button onclick="permanentlyDeleteUser('${u.username}')" class="w-full sm:w-auto justify-center bg-red-900 hover:bg-red-950 text-white font-bold py-2 px-3 sm:px-4 rounded text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-2">
                                                 <i data-lucide="user-x" class="w-4 h-4"></i>
                                                 Endgültig löschen
                                             </button>
@@ -1721,29 +1670,29 @@
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
                                     <div class="bg-white p-3 sm:p-4 rounded border border-gray-200 shadow-sm">
                                         <h4 class="font-bold flex items-center gap-2 mb-3 sm:mb-4 text-gray-700 border-b pb-2 text-sm sm:text-base"><i data-lucide="heart" class="w-4 h-4 sm:w-5 sm:h-5 text-red-500"></i> Gelikte Artikel (${liked.length})</h4>
-                                        <ul class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-2">
-                                            ${liked.length === 0 ? '<li class="text-gray-500 text-xs sm:text-sm">Keine</li>' : liked.map(a => `<li><button onclick="window.openArticle(${a.id})" class="text-left text-xs sm:text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>`).join('')}
+                                        <ul class="flex flex-col gap-2 max-h-40 sm:max-h-48 overflow-y-auto pr-2">
+                                            ${liked.length === 0 ? '<li class="text-gray-500 text-xs sm:text-sm">Keine</li>' : liked.map(a => `<li><button onclick="openArticle(${a.id})" class="text-left text-xs sm:text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>`).join('')}
                                         </ul>
                                     </div>
                                     <div class="bg-white p-3 sm:p-4 rounded border border-gray-200 shadow-sm">
                                         <h4 class="font-bold flex items-center gap-2 mb-3 sm:mb-4 text-gray-700 border-b pb-2 text-sm sm:text-base"><i data-lucide="eye" class="w-4 h-4 sm:w-5 sm:h-5 text-blue-500"></i> Gelesene Artikel (${viewed.length})</h4>
-                                        <ul class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-2">
-                                            ${viewed.length === 0 ? '<li class="text-gray-500 text-xs sm:text-sm">Keine</li>' : viewed.map(a => `<li><button onclick="window.openArticle(${a.id})" class="text-left text-xs sm:text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>`).join('')}
+                                        <ul class="flex flex-col gap-2 max-h-40 sm:max-h-48 overflow-y-auto pr-2">
+                                            ${viewed.length === 0 ? '<li class="text-gray-500 text-xs sm:text-sm">Keine</li>' : viewed.map(a => `<li><button onclick="openArticle(${a.id})" class="text-left text-xs sm:text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>`).join('')}
                                         </ul>
                                     </div>
                                 </div>
 
                                 <div class="bg-white p-3 sm:p-4 rounded border border-gray-200 shadow-sm">
-                                    <h4 class="font-bold flex items-center gap-2 mb-3 sm:mb-4 text-gray-700 border-b pb-2 text-sm sm:text-base"><i data-lucide="message-square" class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"></i> Kommentare des Nutzers (${userComments.length})</h4>
+                                    <h4 class="font-bold flex items-center gap-2 mb-3 sm:mb-4 text-gray-700 border-b pb-2 text-sm sm:text-base"><i data-lucide="message-square" class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"></i> Kommentare (${userComments.length})</h4>
                                     <div class="flex flex-col gap-3 sm:gap-4">
                                         ${userComments.length === 0 ? '<p class="text-gray-500 text-xs sm:text-sm">Keine Kommentare</p>' : userComments.map(c => `
                                             <div class="bg-gray-50 p-2 sm:p-3 rounded border border-gray-100">
-                                                <div class="flex flex-col sm:flex-row justify-between sm:items-start mb-1 gap-1">
-                                                    <span class="text-[10px] sm:text-xs text-gray-500">Artikel: <button onclick="window.openArticle(${c.articleId})" class="font-bold text-blue-600 hover:underline text-left leading-tight">${c.articleTitle}</button></span>
-                                                    <span class="text-[10px] text-gray-400 shrink-0">${new Date(c.timestamp).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}</span>
+                                                <div class="flex flex-col sm:flex-row justify-between items-start mb-1 gap-1">
+                                                    <span class="text-[10px] sm:text-xs text-gray-500">zu Artikel: <button onclick="openArticle(${c.articleId})" class="font-bold text-blue-600 hover:underline line-clamp-1">${c.articleTitle}</button></span>
+                                                    <span class="text-[10px] sm:text-xs text-gray-400 whitespace-nowrap">${new Date(c.timestamp).toLocaleString('de-DE')}</span>
                                                 </div>
                                                 <p class="text-gray-800 text-xs sm:text-sm mt-1">${c.text}</p>
                                                 ${c.isDeleted ? '<span class="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold mt-2 inline-block">Gelöscht</span>' : ''}
@@ -1756,10 +1705,10 @@
 
                     ` : adminTab === 'support' && hasAdminAccess() ? `
                         
-                        <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-4 sm:mb-6"><i data-lucide="help-circle" class="text-blue-600 w-5 h-5"></i> Support-Anfragen</h3>
+                        <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2 border-b pb-3 sm:pb-4 mb-4 sm:mb-6"><i data-lucide="help-circle" class="text-blue-600"></i> Support-Anfragen</h3>
                         
-                        <div class="flex flex-col lg:flex-row gap-4 sm:gap-6 h-auto lg:h-[600px] min-h-[500px]">
-                            <div class="w-full lg:w-1/3 border border-gray-200 rounded bg-white overflow-y-auto max-h-[250px] lg:max-h-full">
+                        <div class="flex flex-col md:flex-row gap-4 sm:gap-6 h-auto md:h-[600px] min-h-[500px]">
+                            <div class="w-full md:w-1/3 border border-gray-200 rounded bg-white overflow-y-auto max-h-[250px] md:max-h-full">
                                 ${supportChats.length === 0 ? '<p class="p-4 text-gray-500 italic text-sm">Keine Support-Anfragen vorhanden.</p>' : supportChats.map(c => {
                                     const lastMsg = c.messages[c.messages.length - 1];
                                     const isSelected = adminSelectedChatId === c.id;
@@ -1769,25 +1718,25 @@
                                     const isBanned = user ? user.isBanned : false;
                                     
                                     return `
-                                        <div onclick="adminSelectedChatId = ${c.id}; window.renderApp()" class="p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
-                                            <div class="flex justify-between items-start mb-1">
+                                        <div onclick="adminSelectedChatId = ${c.id}; renderApp()" class="p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
+                                            <div class="flex justify-between items-start mb-1 gap-2">
                                                 <span class="font-bold text-xs sm:text-sm ${isUnread ? 'text-blue-900' : 'text-gray-700'} truncate flex items-center gap-1" title="${c.userId}">
-                                                    ${c.userId.length > 12 ? c.userId.substring(0, 12) + '...' : c.userId}
+                                                    ${c.userId.length > 15 ? c.userId.substring(0, 15) + '...' : c.userId}
                                                     ${isBanned ? '<span class="bg-red-600 text-white text-[8px] px-1 rounded uppercase" title="Account gesperrt">Gesperrt</span>' : ''}
                                                 </span>
                                                 <span class="text-[9px] sm:text-[10px] text-gray-400 shrink-0">${lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
                                             </div>
-                                            <p class="text-[10px] sm:text-xs text-gray-500 truncate pr-2 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? lastMsg.text : 'Neuer Chat'}</p>
+                                            <p class="text-[10px] sm:text-xs text-gray-500 truncate pr-2 sm:pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? lastMsg.text : 'Neuer Chat'}</p>
                                         </div>
                                     `;
                                 }).join('')}
                             </div>
                             
-                            <div class="w-full lg:w-2/3 border border-gray-200 rounded bg-gray-50 flex flex-col relative min-h-[400px] lg:min-h-0">
+                            <div class="w-full md:w-2/3 border border-gray-200 rounded bg-gray-50 flex flex-col relative min-h-[400px] md:min-h-0">
                                 ${!adminSelectedChatId ? `
-                                    <div class="flex-1 flex items-center justify-center text-gray-400 flex-col gap-2 p-4 text-center">
+                                    <div class="flex-1 flex items-center justify-center text-gray-400 flex-col gap-2 p-6 text-center">
                                         <i data-lucide="message-square" class="w-10 h-10 sm:w-12 sm:h-12 opacity-50"></i>
-                                        <p class="text-sm">Wähle einen Chat aus der Liste aus.</p>
+                                        <p class="text-sm sm:text-base">Wähle einen Chat aus der Liste aus.</p>
                                     </div>
                                 ` : (() => {
                                     const chat = supportChats.find(c => c.id === adminSelectedChatId);
@@ -1798,21 +1747,21 @@
                                     
                                     return `
                                         <div class="bg-white p-3 sm:p-4 border-b border-gray-200 flex justify-between items-center shadow-sm z-10">
-                                            <h4 ${user ? `onclick="window.viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-sm sm:text-base text-blue-900 flex items-center gap-2 ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
+                                            <h4 ${user ? `onclick="viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-blue-900 flex items-center gap-2 text-sm sm:text-base ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
                                                 ${user ? getUserAvatar(chat.userId, 'w-5 h-5 sm:w-6 sm:h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-4 h-4 sm:w-5 sm:h-5"></i>'}
-                                                <span class="truncate max-w-[150px] sm:max-w-none">Chat mit ${chat.userId}</span>
-                                                ${isBanned ? '<span class="bg-red-600 text-white text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase ml-1 sm:ml-2 no-underline">Gesperrt</span>' : ''}
-                                                ${!user ? '<span class="bg-gray-200 text-gray-600 text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase ml-1 sm:ml-2 no-underline">Gast</span>' : ''}
+                                                <span class="truncate max-w-[150px] sm:max-w-xs">Chat mit ${chat.userId}</span>
+                                                ${isBanned ? '<span class="bg-red-600 text-white text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ml-1 sm:ml-2 no-underline">Gesperrt</span>' : ''}
+                                                ${!user ? '<span class="bg-gray-200 text-gray-600 text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ml-1 sm:ml-2 no-underline">Gast</span>' : ''}
                                             </h4>
                                         </div>
                                         
-                                        <div class="flex-1 p-3 sm:p-4 overflow-y-auto flex flex-col gap-2 sm:gap-3" id="adminChatContainer">
+                                        <div class="flex-1 p-3 sm:p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
                                             ${chat.messages.map((m, index) => `
                                                 <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
                                                     <div class="max-w-[85%] rounded-lg p-2 sm:p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
                                                         <p class="text-xs sm:text-sm break-words">${m.text}</p>
                                                         <div class="flex justify-between items-center mt-1 gap-2 sm:gap-4">
-                                                            <span class="text-[8px] sm:text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}</span>
+                                                            <span class="text-[9px] sm:text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1820,8 +1769,8 @@
                                         </div>
                                         
                                         <div class="p-2 sm:p-3 bg-white border-t border-gray-200 flex flex-col sm:flex-row gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-                                            <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-3 py-2 sm:px-4 sm:py-2 focus:outline-none focus:border-blue-500 font-sans text-xs sm:text-sm" onkeypress="if(event.key === 'Enter') window.adminReplySupportMessage(${chat.id})" />
-                                            <button onclick="window.adminReplySupportMessage(${chat.id})" class="w-full sm:w-auto bg-blue-900 text-white px-4 sm:px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-xs sm:text-sm flex justify-center items-center gap-2">
+                                            <input type="text" id="adminSupportInput" placeholder="Manuelle Antwort..." class="flex-1 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 font-sans text-xs sm:text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage(${chat.id})" />
+                                            <button onclick="adminReplySupportMessage(${chat.id})" class="bg-blue-900 text-white px-4 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-xs sm:text-sm flex justify-center items-center gap-2">
                                                 Senden <i data-lucide="send" class="w-3 h-3 sm:w-4 sm:h-4"></i>
                                             </button>
                                         </div>
@@ -1831,7 +1780,8 @@
                         </div>
 
                     ` : adminTab === 'backup' && hasAdminAccess() ? `
-                        <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2 border-b pb-4"><i data-lucide="database" class="text-blue-600 w-5 h-5"></i> System-Backup</h3>
+                        <!-- BACKUP TAB -->
+                        <h3 class="text-lg sm:text-xl font-bold uppercase mb-4 sm:mb-6 flex items-center gap-2 border-b pb-3 sm:pb-4"><i data-lucide="database" class="text-blue-600"></i> System-Backup</h3>
                         
                         <div class="bg-blue-50 p-3 sm:p-4 rounded text-xs sm:text-sm text-gray-700 flex items-start gap-3 mb-6 sm:mb-8 border border-blue-100">
                             <i data-lucide="info" class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0"></i>
@@ -1842,22 +1792,23 @@
                             <div class="bg-white p-6 sm:p-8 border border-gray-200 shadow-sm rounded flex flex-col items-center text-center gap-3 sm:gap-4">
                                 <div class="w-12 h-12 sm:w-16 sm:h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-1 sm:mb-2"><i data-lucide="download-cloud" class="w-6 h-6 sm:w-8 sm:h-8"></i></div>
                                 <h4 class="font-bold text-base sm:text-lg">Backup erstellen</h4>
-                                <button onclick="window.exportBackup()" class="w-full bg-green-600 text-white font-bold py-2 sm:py-3 px-4 rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base">
-                                    <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5"></i> <span class="truncate">Komplettes Backup exportieren</span>
+                                <button onclick="exportBackup()" class="w-full bg-green-600 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm">
+                                    <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5"></i> Komplettes Backup exportieren
                                 </button>
                             </div>
                             <div class="bg-white p-6 sm:p-8 border border-gray-200 shadow-sm rounded flex flex-col items-center text-center gap-3 sm:gap-4">
                                 <div class="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mb-1 sm:mb-2"><i data-lucide="upload-cloud" class="w-6 h-6 sm:w-8 sm:h-8"></i></div>
                                 <h4 class="font-bold text-base sm:text-lg">Backup wiederherstellen</h4>
-                                <label class="w-full bg-purple-600 text-white font-bold py-2 sm:py-3 px-4 rounded hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base">
-                                    <i data-lucide="upload" class="w-4 h-4 sm:w-5 sm:h-5"></i> <span class="truncate">Backup-Datei hochladen</span>
-                                    <input type="file" accept=".json,.txt" class="hidden" onchange="window.importBackup(event)" />
+                                <label class="w-full bg-purple-600 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm">
+                                    <i data-lucide="upload" class="w-4 h-4 sm:w-5 sm:h-5"></i> Backup-Datei hochladen
+                                    <input type="file" accept=".json,.txt" class="hidden" onchange="importBackup(event)" />
                                 </label>
                             </div>
                         </div>
 
                     ` : adminTab === 'feedback' && hasAdminAccess() ? `
-                        <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-4 sm:mb-6"><i data-lucide="message-square-plus" class="text-blue-600 w-5 h-5"></i> Website-Bewertungen</h3>
+                        <!-- FEEDBACK TAB -->
+                        <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2 border-b pb-3 sm:pb-4 mb-4 sm:mb-6"><i data-lucide="message-square-plus" class="text-blue-600"></i> Website-Bewertungen</h3>
                         
                         <div class="flex flex-col gap-3 sm:gap-4">
                             ${siteFeedbacks.length === 0 ? '<p class="text-gray-500 italic text-sm">Noch keine Bewertungen abgegeben.</p>' : ''}
@@ -1865,28 +1816,28 @@
                                 const isPending = f.moderationStatus === 'pending';
                                 return `
                                 <div class="bg-white p-3 sm:p-4 rounded border ${isPending ? 'border-orange-400 bg-orange-50' : 'border-gray-200'} shadow-sm">
-                                    <div class="flex justify-between items-start mb-2 gap-2">
-                                        <div class="flex items-center gap-2 overflow-hidden">
+                                    <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-1 sm:gap-2">
+                                        <div class="flex items-center gap-2">
                                             ${getUserAvatar(f.username, 'w-5 h-5 sm:w-6 sm:h-6', 'w-3 h-3', false)}
-                                            <span class="font-bold text-sm text-blue-900 truncate">${f.username}</span>
+                                            <span class="font-bold text-sm sm:text-base text-blue-900 truncate max-w-[150px] sm:max-w-xs">${f.username}</span>
                                         </div>
-                                        <div class="flex flex-col items-end gap-1 shrink-0">
-                                            <span class="text-[10px] sm:text-xs text-gray-500 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2">
-                                                ${isPending ? '<span class="bg-orange-500 text-white px-2 py-0.5 rounded font-bold uppercase animate-pulse mb-1 sm:mb-0">Wartet auf Freigabe</span>' : ''}
-                                                ${new Date(f.timestamp).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}
+                                        <div class="flex flex-col sm:items-end gap-1">
+                                            <span class="text-[10px] sm:text-xs text-gray-500 flex flex-wrap items-center gap-1 sm:gap-2">
+                                                ${isPending ? '<span class="bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold uppercase animate-pulse">Wartet auf Freigabe</span>' : ''}
+                                                ${new Date(f.timestamp).toLocaleString('de-DE')}
                                             </span>
                                         </div>
                                     </div>
                                     <p class="text-xs sm:text-sm text-gray-800 leading-relaxed mb-3 break-words">${f.text}</p>
-                                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm">
-                                        <span class="text-gray-500 flex items-center gap-1"><i data-lucide="heart" class="w-3 h-3 sm:w-4 sm:h-4"></i> ${f.likes ? f.likes.length : 0} Likes</span>
+                                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3">
+                                        <span class="text-gray-500 flex items-center gap-1"><i data-lucide="heart" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> ${f.likes ? f.likes.length : 0} Likes</span>
                                         
-                                        <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end border-t sm:border-0 border-gray-200 pt-2 sm:pt-0">
+                                        <div class="flex flex-wrap gap-2 md:gap-4">
                                             ${isPending ? `
-                                                <button onclick="window.adminApproveContent('feedback', ${f.id}, null)" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check" class="w-3 h-3 sm:w-4 sm:h-4"></i> Zulassen</button>
+                                                <button onclick="adminApproveContent('feedback', ${f.id}, null)" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Zulassen</button>
                                             ` : ''}
 
-                                            <button onclick="window.adminRejectContent('feedback', ${f.id}, null)" class="text-red-500 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="trash-2" class="w-3 h-3 sm:w-4 sm:h-4"></i> ${isPending ? 'Ablehnen & Löschen' : 'Löschen'}</button>
+                                            <button onclick="adminRejectContent('feedback', ${f.id}, null)" class="text-red-500 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="trash-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> ${isPending ? 'Ablehnen & Löschen' : 'Löschen'}</button>
                                         </div>
                                     </div>
                                 </div>
@@ -1895,7 +1846,8 @@
                         </div>
 
                     ` : hasAdminAccess() ? `
-                        <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-4 sm:mb-6"><i data-lucide="message-square" class="text-blue-600 w-5 h-5"></i> Alle Kommentare</h3>
+                        <!-- KOMMENTARE TAB -->
+                        <h3 class="text-lg sm:text-xl font-bold uppercase flex items-center gap-2 border-b pb-3 sm:pb-4 mb-4 sm:mb-6"><i data-lucide="message-square" class="text-blue-600"></i> Alle Kommentare</h3>
                         
                         <div class="flex flex-col gap-3 sm:gap-4">
                             ${allComments.length === 0 ? '<p class="text-gray-500 italic text-sm">Noch keine Kommentare geschrieben.</p>' : ''}
@@ -1903,38 +1855,38 @@
                                 const isPending = c.moderationStatus === 'pending';
                                 return `
                                 <div class="bg-white p-3 sm:p-4 rounded border ${isPending ? 'border-orange-400 bg-orange-50' : c.isDeleted ? 'border-red-300 bg-red-50 opacity-75' : (c.reportedBy && c.reportedBy.length > 0 ? 'border-orange-400 bg-orange-50' : 'border-gray-200')} shadow-sm">
-                                    <div class="flex flex-col sm:flex-row justify-between sm:items-start mb-2 gap-2">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            ${getUserAvatar(c.username, 'w-5 h-5 sm:w-6 sm:h-6', 'w-3 h-3', false)}
-                                            <span class="font-bold text-sm text-blue-900">${c.username}</span>
-                                            <span class="text-[10px] sm:text-xs text-gray-500">Artikel: <span class="font-bold text-blue-700">${c.articleTitle}</span></span>
+                                    <div class="flex flex-col md:flex-row justify-between items-start mb-2 gap-1 md:gap-2">
+                                        <div class="flex items-center gap-2 w-full md:w-auto">
+                                            ${getUserAvatar(c.username, 'w-5 h-5 sm:w-6 sm:h-6 shrink-0', 'w-3 h-3', false)}
+                                            <span class="font-bold text-sm sm:text-base text-blue-900 truncate max-w-[120px] sm:max-w-[200px]">${c.username}</span>
+                                            <span class="text-[10px] sm:text-xs text-gray-500 hidden sm:inline truncate">zu Artikel: <span class="font-bold">${c.articleTitle}</span></span>
                                         </div>
-                                        <div class="flex flex-wrap sm:flex-col items-end gap-1">
-                                            <span class="text-[10px] sm:text-xs text-gray-500 flex flex-wrap items-center gap-1 sm:gap-2 justify-end">
+                                        <div class="flex flex-col md:items-end gap-1 w-full md:w-auto mt-1 md:mt-0">
+                                            <span class="text-[10px] sm:text-xs text-gray-500 flex flex-wrap items-center gap-1 sm:gap-2">
                                                 ${isPending ? '<span class="bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold uppercase animate-pulse">Wartet auf Freigabe</span>' : ''}
                                                 ${c.isDeleted ? '<span class="bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">GELÖSCHT</span>' : ''}
                                                 ${c.reportedBy && c.reportedBy.length > 0 && !c.isDeleted ? `<span class="bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold uppercase flex items-center gap-1"><i data-lucide="flag" class="w-3 h-3"></i> Gemeldet (${c.reportedBy.length}x)</span>` : ''}
-                                                ${new Date(c.timestamp).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}
+                                                ${new Date(c.timestamp).toLocaleString('de-DE')}
                                             </span>
                                         </div>
                                     </div>
                                     <p class="text-xs sm:text-sm text-gray-800 leading-relaxed mb-3 break-words">${c.text}</p>
                                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3">
-                                        <span class="text-gray-500 flex items-center gap-1"><i data-lucide="heart" class="w-3 h-3 sm:w-4 sm:h-4"></i> ${c.likes.length} Likes</span>
+                                        <span class="text-gray-500 flex items-center gap-1"><i data-lucide="heart" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> ${c.likes.length} Likes</span>
                                         
-                                        <div class="flex flex-wrap gap-2 md:gap-4 w-full sm:w-auto justify-end border-t sm:border-0 pt-2 sm:pt-0 border-gray-200">
+                                        <div class="flex flex-wrap gap-2 md:gap-4">
                                             ${isPending ? `
-                                                <button onclick="window.adminApproveContent('comment', ${c.id}, ${c.articleId})" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check" class="w-3 h-3 sm:w-4 sm:h-4"></i> Zulassen</button>
+                                                <button onclick="adminApproveContent('comment', ${c.id}, ${c.articleId})" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Zulassen</button>
                                             ` : ''}
 
                                             ${c.reportedBy && c.reportedBy.length > 0 && !c.isDeleted ? `
-                                                <button onclick="window.unreportComment(${c.articleId}, ${c.id})" class="text-orange-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check-circle" class="w-3 h-3 sm:w-4 sm:h-4"></i> Meldung ignorieren</button>
+                                                <button onclick="unreportComment(${c.articleId}, ${c.id})" class="text-orange-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check-circle" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Ignorieren</button>
                                             ` : ''}
 
                                             ${c.isDeleted ? `
-                                                <button onclick="window.restoreComment(${c.articleId}, ${c.id})" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="refresh-cw" class="w-3 h-3 sm:w-4 sm:h-4"></i> Wiederherstellen</button>
+                                                <button onclick="restoreComment(${c.articleId}, ${c.id})" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="refresh-cw" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Wiederherstellen</button>
                                             ` : `
-                                                <button onclick="window.adminRejectContent('comment', ${c.id}, ${c.articleId})" class="text-red-500 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="trash-2" class="w-3 h-3 sm:w-4 sm:h-4"></i> ${isPending ? 'Ablehnen & Löschen' : 'Verstecken'}</button>
+                                                <button onclick="adminRejectContent('comment', ${c.id}, ${c.articleId})" class="text-red-500 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="trash-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> ${isPending ? 'Ablehnen & Löschen' : 'Verstecken'}</button>
                                             `}
                                         </div>
                                     </div>
@@ -1957,7 +1909,7 @@
                 userChat = { id: 'temp', messages: [], aiEnabled: true };
             }
 
-            let messagesHtml = '<p class="text-[10px] sm:text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support oder der KI.</p>';
+            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support oder der KI.</p>';
             
             if (userChat && userChat.messages && userChat.messages.length > 0) {
                 messagesHtml = userChat.messages.map((m, index) => {
@@ -1973,17 +1925,17 @@
                     return `
                     <div class="flex ${alignClass} mb-3 group">
                         <div class="max-w-[85%]">
-                            ${!isUser ? `<div class="text-[8px] sm:text-[10px] text-gray-400 ml-1 mb-0.5 font-bold uppercase">${senderLabel}</div>` : ''}
-                            <div class="p-2.5 sm:p-3 rounded-lg ${bgClass} shadow-sm ${roundedClass} text-xs sm:text-sm break-words">
+                            ${!isUser ? `<div class="text-[10px] text-gray-400 ml-1 mb-0.5 font-bold uppercase">${senderLabel}</div>` : ''}
+                            <div class="p-2 sm:p-3 rounded-lg ${bgClass} shadow-sm ${roundedClass} text-xs sm:text-sm">
                                 ${m.text.replace(/\n/g, '<br/>')}
-                                ${m.isThinking ? '<span class="inline-flex space-x-1 ml-2"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span></span>' : ''}
+                                ${m.isThinking ? '<span class="inline-flex space-x-1 ml-2"><span class="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-gray-400 rounded-full animate-bounce"></span><span class="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span></span>' : ''}
                             </div>
                             <div class="flex items-center mt-1 gap-2 ${isUser ? 'justify-end' : 'justify-start'}">
                                 <span class="text-[8px] sm:text-[9px] text-gray-400">${new Date(m.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</span>
                                 ${isAi && !m.isThinking ? `
                                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onclick="window.rateAiMessage(${userChat.id}, ${index}, 'up')" class="text-gray-400 hover:text-green-500 ${m.rating === 'up' ? 'text-green-500' : ''}"><i data-lucide="thumbs-up" class="w-3 h-3"></i></button>
-                                        <button onclick="window.rateAiMessage(${userChat.id}, ${index}, 'down')" class="text-gray-400 hover:text-red-500 ${m.rating === 'down' ? 'text-red-500' : ''}"><i data-lucide="thumbs-down" class="w-3 h-3"></i></button>
+                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'up')" class="text-gray-400 hover:text-green-500 ${m.rating === 'up' ? 'text-green-500' : ''}"><i data-lucide="thumbs-up" class="w-3 h-3"></i></button>
+                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'down')" class="text-gray-400 hover:text-red-500 ${m.rating === 'down' ? 'text-red-500' : ''}"><i data-lucide="thumbs-down" class="w-3 h-3"></i></button>
                                     </div>
                                 ` : ''}
                             </div>
@@ -1995,36 +1947,35 @@
 
             return `
             <!-- Support Button Widget -->
-            <button onclick="window.toggleSupportChat()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-900 text-white p-3 sm:p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-transform hover:scale-110 z-[60] flex items-center justify-center cursor-pointer group">
+            <button onclick="toggleSupportChat()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-900 text-white p-3 sm:p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-transform hover:scale-110 z-50 flex items-center justify-center cursor-pointer group">
                 <i data-lucide="message-square" class="w-5 h-5 sm:w-6 sm:h-6"></i>
-                ${(!isSupportChatOpen && userChat && userChat.messages.length > 0 && userChat.messages[userChat.messages.length-1].sender !== 'user') ? '<span class="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>' : ''}
+                ${(!isSupportChatOpen && userChat && userChat.messages.length > 0 && userChat.messages[userChat.messages.length-1].sender !== 'user') ? '<span class="absolute top-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>' : ''}
             </button>
 
             <!-- Chat Window -->
-            <div id="support-chat" class="${isSupportChatOpen ? 'flex' : 'hidden'} fixed bottom-0 right-0 w-full h-[100dvh] sm:h-[500px] sm:max-h-[70vh] sm:bottom-24 sm:right-6 sm:w-96 bg-white border border-gray-200 sm:rounded-lg shadow-2xl z-[70] flex-col font-sans overflow-hidden animate-slide-in sm:animate-none">
+            <div id="support-chat" class="${isSupportChatOpen ? 'flex' : 'hidden'} fixed bottom-20 right-4 sm:bottom-24 sm:right-6 w-[calc(100vw-2rem)] sm:w-96 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 flex-col h-[450px] sm:h-[500px] max-h-[70vh] font-sans overflow-hidden">
                 <!-- Header -->
-                <div class="bg-blue-900 text-white p-3 sm:p-4 flex justify-between items-center shadow-md z-10 shrink-0">
+                <div class="bg-blue-900 text-white p-3 sm:p-4 flex justify-between items-center shadow-md z-10">
                     <div class="flex items-center gap-2 sm:gap-3">
-                        <div class="bg-white/20 p-2 rounded-full shrink-0">
+                        <div class="bg-white/20 p-1.5 sm:p-2 rounded-full shrink-0">
                             <i data-lucide="headset" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                         </div>
                         <div>
                             <h3 class="font-bold leading-none mb-1 text-xs sm:text-sm">Winterthur Times</h3>
                             <div class="flex items-center gap-2 text-[10px] sm:text-xs text-blue-200">
                                 <span class="flex items-center gap-1">
-                                    <span class="w-2 h-2 rounded-full ${userChat.aiEnabled ? 'bg-green-400' : 'bg-gray-400'}"></span>
+                                    <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${userChat.aiEnabled ? 'bg-green-400' : 'bg-gray-400'}"></span>
                                     ${userChat.aiEnabled ? 'KI aktiv' : 'Live Support'}
                                 </span>
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-                        <button onclick="window.toggleChatAi(${userChat.id})" class="text-blue-200 hover:text-white p-1" title="${userChat.aiEnabled ? 'KI deaktivieren' : 'KI aktivieren'}">
-                            <i data-lucide="${userChat.aiEnabled ? 'bot' : 'user'}" class="w-5 h-5 sm:w-5 sm:h-5"></i>
+                        <button onclick="toggleChatAi(${userChat.id})" class="text-blue-200 hover:text-white p-1" title="${userChat.aiEnabled ? 'KI deaktivieren' : 'KI aktivieren'}">
+                            <i data-lucide="${userChat.aiEnabled ? 'bot' : 'user'}" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                         </button>
-                        <!-- Mobile Close Button -->
-                        <button onclick="window.toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
-                            <i data-lucide="x" class="w-6 h-6 sm:w-5 sm:h-5"></i>
+                        <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
+                            <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                         </button>
                     </div>
                 </div>
@@ -2035,20 +1986,20 @@
                 </div>
 
                 <!-- Input Area -->
-                <div class="bg-white border-t border-gray-200 p-2 sm:p-3 flex flex-col gap-2 z-10 shrink-0">
+                <div class="bg-white border-t border-gray-200 p-2 sm:p-3 flex flex-col gap-1 sm:gap-2 z-10">
                     ${userChat.aiEnabled ? `
                         <div class="flex items-center gap-2 px-1 mb-1">
                             <span class="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase">Modus:</span>
-                            <select onchange="window.setUserAiPreference(this.value)" class="text-[9px] sm:text-[10px] border border-gray-200 rounded bg-gray-50 px-1 py-0.5 outline-none cursor-pointer">
+                            <select onchange="setUserAiPreference(this.value)" class="text-[9px] sm:text-[10px] border border-gray-200 rounded bg-gray-50 px-1 py-0.5 outline-none cursor-pointer">
                                 <option value="Think" ${currentUserAiPreference === 'Think' ? 'selected' : ''}>Erklären & Nachdenken</option>
                                 <option value="Response" ${currentUserAiPreference === 'Response' ? 'selected' : ''}>Direkte Antwort</option>
                             </select>
                         </div>
                     ` : ''}
                     <div class="flex gap-2 items-end">
-                        <textarea id="support-input" rows="1" placeholder="Schreibe eine Nachricht..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 resize-none max-h-24 overflow-y-auto bg-gray-50 focus:bg-white transition-colors" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.sendSupportMessage(); }"></textarea>
-                        <button onclick="window.sendSupportMessage()" class="bg-blue-900 text-white p-2.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer shrink-0">
-                            <i data-lucide="send" class="w-4 h-4"></i>
+                        <textarea id="support-input" rows="1" placeholder="Schreibe eine Nachricht..." class="flex-1 border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-blue-500 resize-none max-h-24 overflow-y-auto bg-gray-50 focus:bg-white transition-colors" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportMessage(); }"></textarea>
+                        <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2 sm:p-2.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer shrink-0">
+                            <i data-lucide="send" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                         </button>
                     </div>
                     <div class="text-[8px] sm:text-[9px] text-center text-gray-400 mt-1">
@@ -2062,39 +2013,39 @@
         function renderFooter() {
             return `
             <footer class="bg-black text-white mt-8 sm:mt-12 py-8 sm:py-12 px-4 font-sans">
-                <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
                     <div>
                         <h2 class="text-xl sm:text-2xl font-black uppercase font-serif mb-3 sm:mb-4">Winterthur Times</h2>
                         <p class="text-gray-400 text-xs sm:text-sm mb-4 sm:mb-6">Unabhängiges Schulprojekt. Von der MSW.</p>
                         <div class="flex gap-4">
-                            <span onclick="window.showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="facebook" class="w-5 h-5"></i></span>
-                            <span onclick="window.showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="twitter" class="w-5 h-5"></i></span>
-                            <span onclick="window.showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="instagram" class="w-5 h-5"></i></span>
+                            <span onclick="showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="facebook" class="w-5 h-5"></i></span>
+                            <span onclick="showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="twitter" class="w-5 h-5"></i></span>
+                            <span onclick="showModal('Social Media', 'Unsere Social-Media-Kanäle sind in dieser Demo noch nicht verknüpft.')" class="cursor-pointer text-gray-400 hover:text-white transition-colors"><i data-lucide="instagram" class="w-5 h-5"></i></span>
                         </div>
                     </div>
                     <div>
-                        <h4 class="font-bold uppercase tracking-wider mb-3 sm:mb-4 text-gray-300 text-sm">Ressorts</h4>
-                        <ul class="flex flex-col gap-2 text-sm text-gray-400">
-                            ${categories.slice(0, 8).map(cat => `<li><span onclick="window.executeSearchCategory('${cat}'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors py-1 block">${cat}</span></li>`).join('')}
+                        <h4 class="font-bold uppercase tracking-wider mb-3 sm:mb-4 text-gray-300 text-sm sm:text-base">Ressorts</h4>
+                        <ul class="flex flex-col gap-2 text-xs sm:text-sm text-gray-400">
+                            ${categories.slice(0, 8).map(cat => `<li><span onclick="executeSearchCategory('${cat}'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">${cat}</span></li>`).join('')}
                         </ul>
                     </div>
                     <div>
-                        <h4 class="font-bold uppercase tracking-wider mb-3 sm:mb-4 text-gray-300 text-sm">Service</h4>
-                        <ul class="flex flex-col gap-2 text-sm text-gray-400">
-                            <li><span onclick="window.setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors py-1 block">Tagesbilder (Community)</span></li>
-                            <li><span onclick="window.showModal('Abonnements', 'Unsere Abo-Angebote werden derzeit überarbeitet.')" class="cursor-pointer hover:text-white transition-colors py-1 block">Abonnements</span></li>
-                            <li><span onclick="window.showModal('Newsletter', 'Unsere Newsletter sind leider noch nicht verfügbar.')" class="cursor-pointer hover:text-white transition-colors py-1 block">Newsletter</span></li>
-                            <li><span onclick="window.openFeedbackChat()" class="cursor-pointer text-blue-400 font-bold hover:text-white transition-colors flex items-center gap-1 py-1"><i data-lucide="message-square-plus" class="w-4 h-4"></i> Website bewerten</span></li>
+                        <h4 class="font-bold uppercase tracking-wider mb-3 sm:mb-4 text-gray-300 text-sm sm:text-base">Service</h4>
+                        <ul class="flex flex-col gap-2 text-xs sm:text-sm text-gray-400">
+                            <li><span onclick="setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">Tagesbilder (Community)</span></li>
+                            <li><span onclick="showModal('Abonnements', 'Unsere Abo-Angebote werden derzeit überarbeitet.')" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">Abonnements</span></li>
+                            <li><span onclick="showModal('Newsletter', 'Unsere Newsletter sind leider noch nicht verfügbar.')" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">Newsletter</span></li>
+                            <li><span onclick="openFeedbackChat()" class="cursor-pointer text-blue-400 font-bold hover:text-white transition-colors flex items-center gap-1 py-1 sm:py-0"><i data-lucide="message-square-plus" class="w-4 h-4"></i> Website bewerten</span></li>
                         </ul>
                     </div>
                     <div>
-                        <h4 class="font-bold uppercase tracking-wider mb-3 sm:mb-4 text-gray-300 text-sm">Verlag</h4>
-                        <ul class="flex flex-col gap-2 text-sm text-gray-400">
-                            <li><span onclick="window.setView('authors'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors py-1 block">Unsere Autoren</span></li>
-                            <li><span onclick="window.showModal('Über uns', 'Die Winterthur Times ist eine Demo-Umgebung.')" class="cursor-pointer hover:text-white transition-colors py-1 block">Über uns</span></li>
-                            <li><span onclick="if(!isSupportChatOpen) window.toggleSupportChat();" class="cursor-pointer hover:text-white transition-colors py-1 block">Kontakt</span></li>
-                            <li class="mt-6 border-t border-gray-800 pt-4">
-                                <button onclick="window.setView('admin-login')" class="text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1 text-[10px] sm:text-xs uppercase tracking-wider font-bold">
+                        <h4 class="font-bold uppercase tracking-wider mb-3 sm:mb-4 text-gray-300 text-sm sm:text-base">Verlag</h4>
+                        <ul class="flex flex-col gap-2 text-xs sm:text-sm text-gray-400">
+                            <li><span onclick="setView('authors'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">Unsere Autoren</span></li>
+                            <li><span onclick="showModal('Über uns', 'Die Winterthur Times ist eine Demo-Umgebung.')" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">Über uns</span></li>
+                            <li><span onclick="if(!isSupportChatOpen) toggleSupportChat();" class="cursor-pointer hover:text-white transition-colors block py-1 sm:py-0">Kontakt</span></li>
+                            <li class="mt-4">
+                                <button onclick="setView('admin-login')" class="text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1 text-[10px] sm:text-xs uppercase tracking-wider font-bold py-2 sm:py-0">
                                     <i data-lucide="lock" class="w-3 h-3"></i> main-Admin Login
                                 </button>
                             </li>
@@ -2108,22 +2059,22 @@
             if (!isMenuOpen) return '';
             return `
             <div class="fixed inset-0 bg-black/60 z-50 flex">
-                <div class="bg-white w-[80%] max-w-sm h-full shadow-2xl flex flex-col animate-slide-in">
+                <div class="bg-white w-3/4 sm:w-64 md:w-80 h-full shadow-2xl flex flex-col animate-slide-in">
                     <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                         <h2 class="text-xl sm:text-2xl font-black uppercase font-serif tracking-tight">Menü</h2>
-                        <button onclick="window.toggleMenu()" class="p-2 hover:bg-gray-200 rounded-full transition-colors cursor-pointer text-gray-600">
+                        <button onclick="toggleMenu()" class="p-2 hover:bg-gray-200 rounded-full transition-colors cursor-pointer text-gray-600">
                             <i data-lucide="x" class="w-5 h-5 sm:w-6 sm:h-6"></i>
                         </button>
                     </div>
-                    <nav class="flex-1 overflow-y-auto p-2 sm:p-4 bg-white">
+                    <nav class="flex-1 overflow-y-auto p-4 bg-white">
                         <ul class="flex flex-col gap-1 font-sans font-bold text-base sm:text-lg text-gray-800">
-                            <li><button onclick="window.setView('home'); window.toggleMenu();" class="w-full text-left px-4 py-3 sm:py-4 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors flex items-center justify-between group">Startseite <i data-lucide="chevron-right" class="w-4 h-4 opacity-50 sm:opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>
-                            <li><button onclick="window.setView('gallery'); window.toggleMenu();" class="w-full text-left px-4 py-3 sm:py-4 hover:bg-green-50 hover:text-green-700 rounded transition-colors flex items-center justify-between group">Tagesbilder <i data-lucide="chevron-right" class="w-4 h-4 opacity-50 sm:opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>
-                            ${categories.map(cat => `<li><button onclick="window.executeSearchCategory('${cat}'); window.toggleMenu();" class="w-full text-left px-4 py-3 sm:py-4 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors flex items-center justify-between group">${cat} <i data-lucide="chevron-right" class="w-4 h-4 opacity-50 sm:opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>`).join('')}
+                            <li><button onclick="setView('home'); toggleMenu();" class="w-full text-left px-3 py-3 sm:py-4 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors flex items-center justify-between group">Startseite <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>
+                            <li><button onclick="setView('gallery'); toggleMenu();" class="w-full text-left px-3 py-3 sm:py-4 hover:bg-green-50 hover:text-green-700 rounded transition-colors flex items-center justify-between group">Tagesbilder <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>
+                            ${categories.map(cat => `<li><button onclick="executeSearchCategory('${cat}'); toggleMenu();" class="w-full text-left px-3 py-3 sm:py-4 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors flex items-center justify-between group">${cat} <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>`).join('')}
                         </ul>
                     </nav>
                 </div>
-                <div class="flex-1 cursor-pointer" onclick="window.toggleMenu()" title="Menü schließen"></div>
+                <div class="flex-1 cursor-pointer" onclick="toggleMenu()" title="Menü schließen"></div>
             </div>`;
         }
 
@@ -2132,56 +2083,56 @@
 
             if (currentModal.type === 'image') {
                 return `
-                <div class="fixed inset-0 bg-black/90 flex items-center justify-center z-[80] p-4" onclick="window.closeModal()">
+                <div class="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] px-4" onclick="closeModal()">
                     <div class="relative max-w-4xl w-full flex justify-center" onclick="event.stopPropagation()">
-                        <button onclick="window.closeModal()" class="absolute -top-10 sm:-top-12 right-0 text-white hover:text-gray-300 cursor-pointer p-2"><i data-lucide="x" class="w-6 h-6 sm:w-8 sm:h-8"></i></button>
+                        <button onclick="closeModal()" class="absolute -top-10 sm:-top-12 right-0 text-white hover:text-gray-300 cursor-pointer"><i data-lucide="x" class="w-6 h-6 sm:w-8 sm:h-8"></i></button>
                         <img src="${currentModal.url}" class="max-w-full max-h-[85vh] rounded object-contain shadow-2xl" alt="Vollbild" />
                     </div>
                 </div>`;
             }
 
             return `
-            <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4">
-                <div class="bg-white p-6 sm:p-8 rounded-sm shadow-xl max-w-sm w-full font-sans animate-fade-in max-h-[90vh] overflow-y-auto">
-                    <h3 class="text-xl sm:text-2xl font-black mb-2 sm:mb-3">${currentModal.title}</h3>
+            <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] px-4">
+                <div class="bg-white p-6 sm:p-8 rounded-sm shadow-xl max-w-sm w-full font-sans">
+                    <h3 class="text-xl sm:text-2xl font-black mb-3">${currentModal.title}</h3>
                     ${currentModal.message ? `<p class="text-sm sm:text-base text-gray-600 mb-6 leading-relaxed">${currentModal.message}</p>` : ''}
                     
                     ${currentModal.type === 'login' ? `
                         <div class="flex flex-col gap-3 mb-6">
-                            <input type="text" id="usernameInput" placeholder="Benutzername oder E-Mail" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
-                            <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); window.loginUser(); }" />
+                            <input type="text" id="usernameInput" placeholder="Benutzername oder E-Mail" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
+                            <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); loginUser(); }" />
                             <p id="loginWarning" class="text-red-500 text-xs sm:text-sm hidden font-bold mt-1"></p>
                         </div>
                         <div class="flex flex-col gap-3">
-                            <button onclick="window.loginUser()" class="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm">Einloggen</button>
+                            <button onclick="loginUser()" class="w-full bg-blue-900 text-white font-bold py-2.5 sm:py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm sm:text-base">Einloggen</button>
                             <div class="text-center text-xs sm:text-sm text-gray-600 mt-1">
-                                Noch keinen Account? <button onclick="window.showUserRegister()" class="text-blue-700 font-bold hover:underline cursor-pointer">Hier erstellen</button>
+                                Noch keinen Account? <button onclick="showUserRegister()" class="text-blue-700 font-bold hover:underline cursor-pointer">Hier erstellen</button>
                             </div>
-                            <button onclick="window.closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer mt-2 text-sm">Abbrechen</button>
+                            <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-2.5 sm:py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer mt-2 text-sm sm:text-base">Abbrechen</button>
                         </div>
                     ` : currentModal.type === 'register' ? `
                         <div class="flex flex-col gap-3 mb-6">
-                            <input type="text" id="usernameInput" placeholder="Benutzername" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('firstNameInput').focus(); }" />
-                            <input type="text" id="firstNameInput" placeholder="Vorname" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('lastNameInput').focus(); }" />
-                            <input type="text" id="lastNameInput" placeholder="Nachname" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('emailInput').focus(); }" />
-                            <input type="email" id="emailInput" placeholder="E-Mail" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
-                            <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') { event.preventDefault(); window.registerUser(); }" />
+                            <input type="text" id="usernameInput" placeholder="Benutzername" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('firstNameInput').focus(); }" />
+                            <input type="text" id="firstNameInput" placeholder="Vorname" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('lastNameInput').focus(); }" />
+                            <input type="text" id="lastNameInput" placeholder="Nachname" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('emailInput').focus(); }" />
+                            <input type="email" id="emailInput" placeholder="E-Mail" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
+                            <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans text-sm sm:text-base" onkeypress="if(event.key === 'Enter') { event.preventDefault(); registerUser(); }" />
                             <p id="loginWarning" class="text-red-500 text-xs sm:text-sm hidden font-bold mt-1"></p>
                         </div>
                         <div class="flex flex-col gap-3">
-                            <button onclick="window.registerUser()" class="w-full bg-green-700 text-white font-bold py-3 rounded hover:bg-green-600 transition-colors cursor-pointer text-sm">Account erstellen</button>
+                            <button onclick="registerUser()" class="w-full bg-green-700 text-white font-bold py-2.5 sm:py-3 rounded hover:bg-green-600 transition-colors cursor-pointer text-sm sm:text-base">Account erstellen</button>
                             <div class="text-center text-xs sm:text-sm text-gray-600 mt-1">
-                                Bereits registriert? <button onclick="window.showUserLogin()" class="text-blue-700 font-bold hover:underline cursor-pointer">Hier einloggen</button>
+                                Bereits registriert? <button onclick="showUserLogin()" class="text-blue-700 font-bold hover:underline cursor-pointer">Hier einloggen</button>
                             </div>
-                            <button onclick="window.closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer mt-2 text-sm">Abbrechen</button>
+                            <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-2.5 sm:py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer mt-2 text-sm sm:text-base">Abbrechen</button>
                         </div>
                     ` : currentModal.onConfirm ? `
-                        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <button onclick="window.closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer text-sm">Abbrechen</button>
-                            <button onclick="window.executeConfirm()" class="w-full bg-red-600 text-white font-bold py-3 rounded hover:bg-red-700 transition-colors cursor-pointer text-sm">Bestätigen</button>
+                        <div class="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
+                            <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-2.5 sm:py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer text-sm sm:text-base">Abbrechen</button>
+                            <button onclick="executeConfirm()" class="w-full bg-red-600 text-white font-bold py-2.5 sm:py-3 rounded hover:bg-red-700 transition-colors cursor-pointer text-sm sm:text-base">Bestätigen</button>
                         </div>
                     ` : `
-                        <button onclick="window.closeModal()" class="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm">Verstanden</button>
+                        <button onclick="closeModal()" class="w-full bg-blue-900 text-white font-bold py-2.5 sm:py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm sm:text-base">Verstanden</button>
                     `}
                 </div>
             </div>`;
@@ -2189,17 +2140,17 @@
 
         function renderGatekeeper() {
             return `
-            <div class="min-h-[100dvh] flex items-center justify-center bg-gray-100 font-sans px-4">
+            <div class="min-h-screen flex items-center justify-center bg-gray-100 font-sans px-4">
                 <div class="bg-white p-6 sm:p-8 rounded-sm shadow-xl max-w-md w-full text-center border border-gray-200">
                     <h1 class="text-3xl sm:text-4xl font-black font-serif mb-4 uppercase tracking-tighter">Winterthur Times</h1>
-                    <div class="bg-blue-50 p-4 rounded mb-6 text-sm text-blue-800 border border-blue-100 text-left">
+                    <div class="bg-blue-50 p-4 rounded mb-6 text-xs sm:text-sm text-blue-800 border border-blue-100 text-left">
                         <span class="font-bold block mb-1">Geschlossene Testphase</span>
                         Diese Webseite ist derzeit nur für eingeladene Teilnehmer zugänglich.
                     </div>
                     <p class="mb-2 text-gray-700 text-sm font-bold text-left">Gib deine E-Mail Adresse ein:</p>
-                    <input type="email" id="gatekeeperEmail" class="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 mb-2 font-sans text-sm" placeholder="E-Mail Adresse..." onkeypress="if(event.key === 'Enter') window.checkGatekeeperEmail()" />
+                    <input type="email" id="gatekeeperEmail" class="w-full px-4 py-2.5 sm:py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 mb-2 font-sans text-sm sm:text-base" placeholder="E-Mail Adresse..." onkeypress="if(event.key === 'Enter') checkGatekeeperEmail()" />
                     <p id="gatekeeperError" class="text-red-500 text-xs font-bold hidden mb-4 text-left">Diese Website ist noch nicht für dich verfügbar.</p>
-                    <button onclick="window.checkGatekeeperEmail()" class="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors mt-2 shadow-sm cursor-pointer text-sm">Eintreten</button>
+                    <button onclick="checkGatekeeperEmail()" class="w-full bg-blue-900 text-white font-bold py-2.5 sm:py-3 rounded hover:bg-blue-800 transition-colors mt-2 shadow-sm cursor-pointer text-sm sm:text-base">Eintreten</button>
                 </div>
             </div>`;
         }
@@ -2209,7 +2160,7 @@
             const error = document.getElementById('gatekeeperError');
             if (input && input.value.trim().toLowerCase().endsWith('@stud.msw.ch')) {
                 hasPassedGatekeeper = true;
-                window.renderApp();
+                renderApp();
             } else {
                 error.classList.remove('hidden');
             }
@@ -2244,7 +2195,7 @@
             }
         }
 
-        window.renderApp = function() {
+        function renderApp() {
             preserveFocus();
             
             if (!hasPassedGatekeeper) {
@@ -2267,7 +2218,7 @@
             document.getElementById('app').innerHTML = `
                 ${renderTopBar()}
                 ${renderHeader()}
-                <main class="max-w-7xl mx-auto w-full pb-8 sm:py-8 overflow-hidden">
+                <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                     ${content}
                 </main>
                 ${renderFooter()}
@@ -2294,7 +2245,7 @@
                 searchQuery = "";
                 searchCategory = null;
             }
-            window.renderApp();
+            renderApp();
             window.scrollTo(0, 0);
 
             if (newView === 'feedback') {
@@ -2306,7 +2257,7 @@
         }
 
         window.openFeedbackChat = function() {
-            window.setView('feedback');
+            setView('feedback');
         }
 
         window.sendFeedback = function() {
@@ -2326,7 +2277,7 @@
             });
             
             window.saveState();
-            window.renderApp();
+            renderApp();
             
             setTimeout(() => {
                 const container = document.getElementById('feedbackContainer');
@@ -2335,13 +2286,13 @@
                 if(inputRef) inputRef.focus();
             }, 50);
 
-            window.checkContentWithAi(text, 'feedback', newId, null);
+            checkContentWithAi(text, 'feedback', newId, null);
         }
 
         window.toggleFeedbackLike = function(id) {
             if (!currentUser) {
                 pendingView = 'feedback';
-                window.showUserLogin();
+                showUserLogin();
                 return;
             }
             let fb = siteFeedbacks.find(f => f.id === id);
@@ -2351,7 +2302,7 @@
             if (idx > -1) fb.likes.splice(idx, 1);
             else fb.likes.push(currentUser);
             window.saveState();
-            window.renderApp();
+            renderApp();
         }
 
         window.deleteFeedback = function(id) {
@@ -2362,10 +2313,10 @@
                     siteFeedbacks = siteFeedbacks.filter(f => f.id !== id);
                     currentModal = null;
                     window.saveState();
-                    window.renderApp();
+                    renderApp();
                 }
             };
-            window.renderApp();
+            renderApp();
         }
 
         window.handleCommunityUpload = function() {
@@ -2385,8 +2336,8 @@
                     likes: []
                 });
                 window.saveState();
-                window.showModal('Erfolgreich', 'Dein Bild wurde hochgeladen und ist nun für 24 Stunden für alle sichtbar.');
-                window.renderApp();
+                showModal('Erfolgreich', 'Dein Bild wurde hochgeladen und ist nun für 24 Stunden für alle sichtbar.');
+                renderApp();
             };
 
             if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -2396,7 +2347,7 @@
             } else if (urlInput && urlInput.value.trim() !== '') {
                 saveImg(urlInput.value.trim());
             } else {
-                window.showModal('Fehler', 'Bitte wähle ein Bild von deinem Gerät aus oder gib eine Bild-URL ein.');
+                showModal('Fehler', 'Bitte wähle ein Bild von deinem PC aus oder gib eine Bild-URL ein.');
             }
         }
 
@@ -2409,10 +2360,10 @@
                     if (img) img.isDeleted = true;
                     currentModal = null;
                     window.saveState();
-                    window.renderApp();
+                    renderApp();
                 }
             };
-            window.renderApp();
+            renderApp();
         }
 
         window.restoreCommunityImage = function(id) {
@@ -2421,12 +2372,12 @@
             if (img) {
                 img.isDeleted = false;
                 window.saveState();
-                window.renderApp();
+                renderApp();
             }
         }
 
         window.toggleCommunityImageLike = function(id) {
-            if (!currentUser) { window.showUserLogin(); return; }
+            if (!currentUser) { showUserLogin(); return; }
             let img = communityImages.find(i => i.id === id);
             if (!img) return;
             if (!img.likes) img.likes = []; 
@@ -2434,7 +2385,7 @@
             if (index > -1) img.likes.splice(index, 1);
             else img.likes.push(currentUser);
             window.saveState();
-            window.renderApp();
+            renderApp();
         }
 
         window.openArticle = function(id) {
@@ -2446,7 +2397,7 @@
                 window.saveState();
             }
             selectedArticleId = id;
-            window.setView('article');
+            setView('article');
         }
 
         window.addCategory = function() {
@@ -2456,25 +2407,25 @@
             const newCat = input.value.trim();
             if(newCat === '') return;
             if(categories.includes(newCat)) {
-                window.showModal('Fehler', 'Dieses Ressort existiert bereits.');
+                showModal('Fehler', 'Dieses Ressort existiert bereits.');
                 return;
             }
             categories.push(newCat);
             window.saveState();
-            window.renderApp();
-            window.showModal('Erfolgreich', `Das Ressort "${newCat}" wurde hinzugefügt.`);
+            renderApp();
+            showModal('Erfolgreich', `Das Ressort "${newCat}" wurde hinzugefügt.`);
         }
 
         window.deleteCategory = function(cat) {
             if(!hasAdminAccess()) return;
             const isInUse = articles.some(a => a.category === cat);
             if(isInUse) {
-                window.showModal('Fehler', 'Dieses Ressort wird noch in Artikeln verwendet und kann daher nicht gelöscht werden.');
+                showModal('Fehler', 'Dieses Ressort wird noch in Artikeln verwendet und kann daher nicht gelöscht werden.');
                 return;
             }
             categories = categories.filter(c => c !== cat);
             window.saveState();
-            window.renderApp();
+            renderApp();
         }
 
         window.handleSaveAuthor = function(event) {
@@ -2498,13 +2449,13 @@
                         if (imgSrc) authors[idx].imageUrl = imgSrc;
                     }
                     editingAuthorId = null;
-                    window.showModal('Erfolgreich', 'Der Autor wurde aktualisiert.');
+                    showModal('Erfolgreich', 'Der Autor wurde aktualisiert.');
                 } else {
                     authors.push({ id: Date.now(), name, bio, imageUrl: imgSrc });
-                    window.showModal('Erfolgreich', 'Neuer Autor hinzugefügt.');
+                    showModal('Erfolgreich', 'Neuer Autor hinzugefügt.');
                 }
                 window.saveState();
-                window.renderApp();
+                renderApp();
             };
 
             if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -2519,7 +2470,7 @@
         window.editAuthor = function(id) {
             if(!hasAdminAccess()) return;
             editingAuthorId = id;
-            window.renderApp();
+            renderApp();
             setTimeout(() => {
                 const author = authors.find(a => a.id === id);
                 if(author) {
@@ -2536,17 +2487,17 @@
             const author = authors.find(a => a.id === id);
             const isInUse = articles.some(a => a.author === author.name);
             if(isInUse) {
-                window.showModal('Fehler', 'Dieser Autor hat noch veröffentlichte Artikel. Du kannst ihn nicht löschen, bevor die Artikel einem anderen Autor zugewiesen wurden.');
+                showModal('Fehler', 'Dieser Autor hat noch veröffentlichte Artikel. Du kannst ihn nicht löschen, bevor die Artikel einem anderen Autor zugewiesen wurden.');
                 return;
             }
             authors = authors.filter(a => a.id !== id);
             window.saveState();
-            window.renderApp();
+            renderApp();
         };
 
         window.cancelAuthorEdit = function() {
             editingAuthorId = null;
-            window.renderApp();
+            renderApp();
         };
 
         window.changeUserRole = function(username, newRole) {
@@ -2555,7 +2506,7 @@
             if (user) {
                 user.role = newRole;
                 window.saveState();
-                window.renderApp();
+                renderApp();
             }
         }
 
@@ -2569,13 +2520,13 @@
             if (chat) {
                 chat.aiEnabled = chat.aiEnabled === false ? true : false;
                 window.saveState();
-                window.renderApp();
+                renderApp();
             }
         }
 
         window.toggleSupportChat = function() {
             isSupportChatOpen = !isSupportChatOpen;
-            window.renderApp();
+            renderApp();
             
             if(isSupportChatOpen) {
                 setTimeout(() => {
@@ -2610,7 +2561,7 @@
             
             input.value = '';
             window.saveState();
-            window.renderApp();
+            renderApp();
             
             const scrollDown = () => {
                 setTimeout(() => {
@@ -2628,7 +2579,7 @@
                     isThinking: true,
                     timestamp: new Date().toISOString()
                 });
-                window.renderApp();
+                renderApp();
                 scrollDown();
 
                 const WORKER_URL = "https://askai.mikestaub705.workers.dev/";
@@ -2637,6 +2588,7 @@
                     const userStatus = currentUser ? `eingeloggt als '${currentUser}' (Rolle: ${getCurrentUserRole()})` : "ein Gast (nicht eingeloggt)";
                     const popularArticles = window.getPopularArticles();
                     const popularContext = popularArticles.length > 0 ? ` Die aktuell meistgelesenen Artikel sind: ${popularArticles.join(', ')}.` : "";
+                    
                     const contextPrefix = `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'.${popularContext} Antworte hilfreich auf Basis dieser Informationen.]\nNutzerfrage: `;
                     
                     window.isLoggedIn = !!currentUser;
@@ -2656,7 +2608,7 @@
                         chat.messages[msgIndex].isThinking = false;
                         chat.messages[msgIndex].text = data.reply || "Es ist ein Fehler aufgetreten.";
                         window.saveState();
-                        window.renderApp();
+                        renderApp();
                         scrollDown();
                     }
                 } catch (e) {
@@ -2664,7 +2616,7 @@
                         chat.messages[msgIndex].isThinking = false;
                         chat.messages[msgIndex].text = "Verbindungsfehler zum Support-Dienst.";
                         window.saveState();
-                        window.renderApp();
+                        renderApp();
                         scrollDown();
                     }
                 }
@@ -2684,7 +2636,7 @@
                 });
                 window.saveState();
             }
-            window.renderApp();
+            renderApp();
             
             setTimeout(() => {
                 const container = document.getElementById('adminChatContainer');
@@ -2700,7 +2652,7 @@
                 title: 'Als Leser anmelden',
                 message: 'Bitte logge dich ein, um alle Funktionen nutzen zu können.'
             };
-            window.renderApp();
+            renderApp();
             setTimeout(() => {
                 const input = document.getElementById('usernameInput');
                 if(input) input.focus();
@@ -2713,7 +2665,7 @@
                 title: 'Account erstellen',
                 message: 'Werde Teil der Winterthur Times-Community.'
             };
-            window.renderApp();
+            renderApp();
             setTimeout(() => {
                 const input = document.getElementById('usernameInput');
                 if(input) input.focus();
@@ -2740,17 +2692,20 @@
                     showWarning("Bitte fülle Benutzername/E-Mail und Passwort aus.");
                     return;
                 }
+
                 const mappedEmail = identifier.includes('@')
                     ? identifier
                     : ((registeredUsers.find(u => u.username === identifier) || {}).email || '');
+
                 if (!mappedEmail || !mappedEmail.includes('@')) {
                     showWarning("Bitte gib deine E-Mail ein (oder registriere dich zuerst).");
                     return;
                 }
-                signInWithEmailAndPassword(firebaseAuth, mappedEmail, password)
+
+                firebaseAuth.signInWithEmailAndPassword(mappedEmail, password)
                     .then(() => {
                         currentModal = null;
-                        window.renderApp();
+                        renderApp();
                     })
                     .catch((err) => {
                         console.error('Firebase Login fehlgeschlagen:', err);
@@ -2760,23 +2715,836 @@
             }
 
             const username = identifier;
+
             if (!username || !password) {
                 showWarning("Bitte fülle Benutzername und Passwort aus.");
                 return;
             }
+
             const existingUser = registeredUsers.find(u => u.username === username);
-            if (!existingUser) { showWarning("Benutzer nicht gefunden. Hast du schon einen Account erstellt?"); return; }
-            if (existingUser.isBanned) { showWarning("Dein Account wurde gesperrt. Bitte wende dich an den Support."); return; }
-            if (existingUser.isDeleted) { showWarning("Dein Account wurde gelöscht. Bitte wende dich an den Support."); return; }
-            if (existingUser.password !== password) { showWarning("Falsches Passwort! Bitte versuche es erneut."); return; }
+            if (!existingUser) {
+                showWarning("Benutzer nicht gefunden. Hast du schon einen Account erstellt?");
+                return;
+            }
+            
+            if (existingUser.isBanned) {
+                showWarning("Dein Account wurde gesperrt. Bitte wende dich an den Support.");
+                return;
+            }
+
+            if (existingUser.isDeleted) {
+                showWarning("Dein Account wurde gelöscht. Bitte wende dich an den Support.");
+                return;
+            }
+
+            if (existingUser.password !== password) {
+                showWarning("Falsches Passwort! Bitte versuche es erneut.");
+                return;
+            }
 
             currentUser = username;
             currentModal = null; 
             
-            if (pendingChatOpen) { isSupportChatOpen = true; pendingChatOpen = false; }
-            if (pendingView) { window.setView(pendingView); pendingView = null; } 
-            else { window.renderApp(); }
+            if (pendingChatOpen) {
+                isSupportChatOpen = true;
+                pendingChatOpen = false;
+            }
+            
+            if (pendingView) {
+                setView(pendingView);
+                pendingView = null;
+            } else {
+                renderApp();
+            }
 
             if(isSupportChatOpen) {
                 setTimeout(() => {
-                    const input = document.getElementById('support
+                    const input = document.getElementById('support-input');
+                    if(input) input.focus();
+                }, 100);
+            }
+        }
+
+        window.registerUser = function() {
+            const usernameInput = document.getElementById('usernameInput');
+            const firstNameInput = document.getElementById('firstNameInput');
+            const lastNameInput = document.getElementById('lastNameInput');
+            const emailInput = document.getElementById('emailInput');
+            const passwordInput = document.getElementById('passwordInput');
+
+            const username = usernameInput ? usernameInput.value.trim() : '';
+            const firstName = firstNameInput ? firstNameInput.value.trim() : '';
+            const lastName = lastNameInput ? lastNameInput.value.trim() : '';
+            const email = emailInput ? emailInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value.trim() : '';
+
+            if (!username || !password) {
+                showWarning("Bitte fülle alle erforderlichen Felder aus.");
+                return;
+            }
+            if (email && !email.includes('@')) {
+                showWarning("Bitte gib eine gültige E-Mail-Adresse mit einem '@' ein.");
+                return;
+            }
+            const existingUser = registeredUsers.find(u => u.username === username);
+            if (existingUser) {
+                showWarning("Dieser Benutzername ist bereits vergeben. Bitte wähle einen anderen.");
+                return;
+            }
+
+            if (isFirebaseConnected && firebaseAuth) {
+                if (!email) {
+                    showWarning("Für den Online-Account ist eine E-Mail-Adresse erforderlich.");
+                    return;
+                }
+                if (password.length < 6) {
+                    showWarning("Das Passwort muss mindestens 6 Zeichen lang sein.");
+                    return;
+                }
+
+                firebaseAuth.createUserWithEmailAndPassword(email, password)
+                    .then(({ user }) => {
+                        return user.updateProfile({ displayName: username });
+                    })
+                    .then(() => {
+                        registeredUsers.push({
+                            username: username,
+                            firstName: firstName,
+                            lastName: lastName,
+                            email: email,
+                            bio: "",
+                            profilePicUrl: "",
+                            showRealName: false,
+                            isBanned: false,
+                            isDeleted: false,
+                            role: "user"
+                        });
+
+                        window.saveState();
+                        currentUser = username;
+                        currentModal = null;
+                        
+                        if (pendingChatOpen) {
+                            isSupportChatOpen = true;
+                            pendingChatOpen = false;
+                        }
+                        
+                        if (pendingView) {
+                            setView(pendingView);
+                            pendingView = null;
+                        } else {
+                            renderApp();
+                        }
+
+                        if(isSupportChatOpen) {
+                            setTimeout(() => {
+                                const input = document.getElementById('support-input');
+                                if(input) input.focus();
+                            }, 100);
+                        }
+                    })
+                    .catch((err) => {
+                        console.error('Firebase Registrierung fehlgeschlagen:', err);
+                        showWarning("Registrierung fehlgeschlagen. Evtl. ist die E-Mail schon vergeben?");
+                    });
+                return;
+            }
+
+            registeredUsers.push({
+                username: username,
+                password: password,
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                bio: "",
+                profilePicUrl: "",
+                showRealName: false,
+                isBanned: false,
+                isDeleted: false,
+                role: "user" 
+            });
+
+            window.saveState();
+
+            currentUser = username;
+            currentModal = null; 
+            
+            if (pendingChatOpen) {
+                isSupportChatOpen = true;
+                pendingChatOpen = false;
+            }
+            
+            if (pendingView) {
+                setView(pendingView);
+                pendingView = null;
+            } else {
+                renderApp();
+            }
+
+            if(isSupportChatOpen) {
+                setTimeout(() => {
+                    const input = document.getElementById('support-input');
+                    if(input) input.focus();
+                }, 100);
+            }
+        }
+
+        window.handleUserLogout = function() {
+            if (isFirebaseConnected && firebaseAuth) {
+                firebaseAuth.signOut().catch(err => console.error('Firebase Logout fehlgeschlagen:', err));
+            }
+            currentUser = null;
+            supportUser = 'Gast-' + sessionId; 
+            
+            if (view === 'admin-dashboard' && !isSuperAdmin) {
+                setView('home'); 
+            } else if (view === 'profile' || view === 'feedback') {
+                setView('home'); 
+            } else {
+                renderApp();
+            }
+        }
+
+        window.toggleLike = function(id) {
+            if (!currentUser) { showUserLogin(); return; }
+            let article = articles.find(a => a.id === id);
+            const index = article.likes.indexOf(currentUser);
+            if (index > -1) article.likes.splice(index, 1);
+            else article.likes.push(currentUser);
+            window.saveState();
+            renderApp();
+        }
+
+        window.handleLogin = function(event) {
+            event.preventDefault();
+            const pwInput = document.getElementById('adminPassword').value;
+            if (pwInput === 'LOL') {
+                isSuperAdmin = true;
+                adminTab = 'articles';
+                setView('admin-dashboard');
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        window.exitDashboard = function() {
+            if(isSuperAdmin) {
+                isSuperAdmin = false;
+            }
+            setView('home');
+        }
+
+        window.editArticle = function(id) {
+            if(!hasAuthorAccess()) return;
+            const article = articles.find(a => a.id === id);
+            if (!article) return;
+            editingArticleId = id;
+            renderApp();
+            
+            setTimeout(() => {
+                document.getElementById('new-title').value = article.title || '';
+                document.getElementById('new-category').value = article.category || '';
+                document.getElementById('new-author').value = article.author || 'Redaktion';
+                document.getElementById('new-summary').value = article.summary || '';
+                document.getElementById('new-image-url').value = article.imageUrl || '';
+                document.getElementById('new-content').value = article.content || '';
+                
+                const sourcesInput = document.getElementById('new-sources');
+                if (sourcesInput) sourcesInput.value = article.sources ? article.sources.join(', ') : '';
+
+                const cb = document.getElementById('new-eilmeldung');
+                if(cb) cb.checked = !!article.isEilmeldung;
+                
+                const dateInput = document.getElementById('new-autodelete');
+                if(dateInput) {
+                    if(article.autoDeleteDate) {
+                        const d = new Date(article.autoDeleteDate);
+                        const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+                        dateInput.value = localIso;
+                    } else {
+                        dateInput.value = '';
+                    }
+                }
+                
+                window.scrollTo(0, 0);
+            }, 50);
+        }
+
+        window.cancelEdit = function() {
+            editingArticleId = null;
+            renderApp();
+        }
+
+        window.handleCreateArticle = function(event) {
+            event.preventDefault();
+            if(!hasAuthorAccess()) return;
+            const isEilmeldung = document.getElementById('new-eilmeldung') ? document.getElementById('new-eilmeldung').checked : false;
+            const fileInput = document.getElementById('new-image-file');
+            const urlInput = document.getElementById('new-image-url').value;
+            const title = document.getElementById('new-title').value;
+            const category = document.getElementById('new-category').value;
+            const author = document.getElementById('new-author').value || 'Redaktion';
+            const summary = document.getElementById('new-summary').value;
+            const content = document.getElementById('new-content').value;
+            
+            const sourcesVal = document.getElementById('new-sources') ? document.getElementById('new-sources').value : '';
+            const sources = sourcesVal.split(',').map(s => s.trim()).filter(s => s !== '');
+            
+            const autoDeleteVal = document.getElementById('new-autodelete') ? document.getElementById('new-autodelete').value : '';
+            const autoDeleteDate = autoDeleteVal ? new Date(autoDeleteVal).toISOString() : null;
+
+            const saveArticle = (imgSrc) => {
+                if (editingArticleId) {
+                    const idx = articles.findIndex(a => a.id === editingArticleId);
+                    if (idx > -1) {
+                        articles[idx].title = title;
+                        articles[idx].category = category;
+                        articles[idx].author = author;
+                        articles[idx].summary = summary;
+                        articles[idx].content = content;
+                        articles[idx].sources = sources;
+                        articles[idx].isEilmeldung = isEilmeldung;
+                        articles[idx].autoDeleteDate = autoDeleteDate;
+                        if (imgSrc) articles[idx].imageUrl = imgSrc;
+                    }
+                    editingArticleId = null;
+                    showModal('Erfolgreich', 'Der Artikel wurde erfolgreich aktualisiert.');
+                } else {
+                    const newArticle = {
+                        id: Date.now(),
+                        title: title,
+                        category: category,
+                        summary: summary,
+                        imageUrl: imgSrc,
+                        content: content,
+                        author: author,
+                        timestamp: new Date().toISOString(),
+                        views: [],
+                        likes: [],
+                        comments: [],
+                        sources: sources,
+                        isEilmeldung: isEilmeldung,
+                        autoDeleteDate: autoDeleteDate
+                    };
+                    articles.unshift(newArticle);
+                    showModal('Erfolgreich', 'Der neue Artikel wurde veröffentlicht.');
+                }
+                window.saveState();
+                adminTab = 'articles';
+                renderApp();
+            };
+
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    saveArticle(e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                saveArticle(urlInput);
+            }
+        }
+
+        window.saveProfile = function() {
+            const newUsername = document.getElementById('profileUsername').value.trim();
+            const newPassword = document.getElementById('profileNewPassword').value.trim();
+            const confirmPassword = document.getElementById('profileConfirmPassword').value.trim();
+            const bioText = document.getElementById('profileBio').value;
+            const profilePicUrl = document.getElementById('profilePicUrl').value;
+            const profilePicFile = document.getElementById('profilePicFile').files[0];
+            const showRealName = document.getElementById('profileShowRealName').checked;
+            
+            const user = registeredUsers.find(u => u.username === currentUser);
+            if (user) {
+                if (newUsername !== currentUser) {
+                    if (newUsername === '') {
+                        showModal('Fehler', 'Der Benutzername darf nicht leer sein.');
+                        return;
+                    }
+                    if (registeredUsers.some(u => u.username === newUsername)) {
+                        showModal('Fehler', 'Dieser Benutzername ist leider schon vergeben.');
+                        return;
+                    }
+                }
+
+                if (newPassword !== '') {
+                    if (newPassword !== confirmPassword) {
+                        showModal('Fehler', 'Die neuen Passwörter stimmen nicht überein.');
+                        return;
+                    }
+                    user.password = newPassword;
+                }
+
+                if (newUsername !== currentUser) {
+                    const oldUsername = currentUser;
+                    user.username = newUsername;
+
+                    articles.forEach(a => {
+                        const viewIdx = a.views.indexOf(oldUsername);
+                        if (viewIdx > -1) a.views[viewIdx] = newUsername;
+
+                        const likeIdx = a.likes.indexOf(oldUsername);
+                        if (likeIdx > -1) a.likes[likeIdx] = newUsername;
+
+                        a.comments.forEach(c => {
+                            if (c.username === oldUsername) c.username = newUsername;
+                            
+                            const cLikeIdx = c.likes.indexOf(oldUsername);
+                            if (cLikeIdx > -1) c.likes[cLikeIdx] = newUsername;
+
+                            if (c.reportedBy) {
+                                const rIdx = c.reportedBy.indexOf(oldUsername);
+                                if (rIdx > -1) c.reportedBy[rIdx] = newUsername;
+                            }
+                        });
+                    });
+
+                    communityImages.forEach(img => {
+                        if (img.uploader === oldUsername) img.uploader = newUsername;
+                        if (img.likes) {
+                            const imgLikeIdx = img.likes.indexOf(oldUsername);
+                            if (imgLikeIdx > -1) img.likes[imgLikeIdx] = newUsername;
+                        }
+                    });
+
+                    siteFeedbacks.forEach(fb => {
+                        if (fb.username === oldUsername) fb.username = newUsername;
+                        if (fb.likes) {
+                            const fbLikeIdx = fb.likes.indexOf(oldUsername);
+                            if (fbLikeIdx > -1) fb.likes[fbLikeIdx] = newUsername;
+                        }
+                    });
+
+                    supportChats.forEach(chat => {
+                        if (chat.userId === oldUsername) chat.userId = newUsername;
+                    });
+
+                    currentUser = newUsername;
+                }
+
+                user.bio = bioText;
+                user.showRealName = showRealName;
+
+                const applySave = () => {
+                    window.saveState();
+                    showModal('Erfolgreich', 'Dein Profil wurde gespeichert!');
+                };
+
+                if (profilePicFile) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        user.profilePicUrl = e.target.result;
+                        applySave();
+                    };
+                    reader.readAsDataURL(profilePicFile);
+                } else {
+                    if (profilePicUrl.trim() !== '') {
+                        user.profilePicUrl = profilePicUrl.trim();
+                    }
+                    applySave();
+                }
+            }
+        }
+        
+        window.clearProfilePic = function() {
+            const user = registeredUsers.find(u => u.username === currentUser);
+            if(user) {
+                user.profilePicUrl = '';
+                window.saveState();
+                renderApp();
+            }
+        }
+
+        window.showImageModal = function(url) {
+            currentModal = { type: 'image', url: url };
+            renderApp();
+        }
+
+        window.submitComment = function(articleId) {
+            const commentInput = document.getElementById('newCommentText');
+            if (!commentInput || commentInput.value.trim() === '') return;
+
+            const article = articles.find(a => a.id === articleId);
+            if (article) {
+                const newId = Date.now();
+                const text = commentInput.value.trim();
+
+                article.comments.push({
+                    id: newId,
+                    username: currentUser,
+                    text: text,
+                    timestamp: new Date().toISOString(),
+                    likes: [],
+                    isDeleted: false,
+                    deletedBy: null,
+                    reportedBy: [],
+                    moderationStatus: 'checking' 
+                });
+                window.saveState();
+                renderApp(); 
+                
+                checkContentWithAi(text, 'comment', newId, articleId);
+            }
+        }
+
+        window.toggleCommentLike = function(articleId, commentId) {
+            if (!currentUser) { showUserLogin(); return; }
+            const article = articles.find(a => a.id === articleId);
+            if(!article) return;
+            const comment = article.comments.find(c => c.id === commentId);
+            if(comment) {
+                const idx = comment.likes.indexOf(currentUser);
+                if (idx > -1) comment.likes.splice(idx, 1);
+                else comment.likes.push(currentUser);
+                window.saveState();
+                renderApp();
+            }
+        }
+
+        window.deleteComment = function(articleId, commentId) {
+            currentModal = {
+                title: 'Kommentar löschen?',
+                message: 'Möchtest du diesen Kommentar entfernen? Er wird dann für andere Leser ausgeblendet.',
+                onConfirm: function() {
+                    const article = articles.find(a => a.id === articleId);
+                    if(article) {
+                        const comment = article.comments.find(c => c.id === commentId);
+                        if(comment) {
+                            comment.isDeleted = true;
+                            comment.deletedBy = hasAdminAccess() ? 'admin' : 'user';
+                        }
+                    }
+                    currentModal = null;
+                    window.saveState();
+                    renderApp();
+                }
+            };
+            renderApp();
+        }
+
+        window.reportComment = function(articleId, commentId) {
+            if (!currentUser) { showUserLogin(); return; }
+            const article = articles.find(a => a.id === articleId);
+            if(article) {
+                const comment = article.comments.find(c => c.id === commentId);
+                if(comment) {
+                    if (!comment.reportedBy) comment.reportedBy = [];
+                    if (!comment.reportedBy.includes(currentUser)) {
+                        comment.reportedBy.push(currentUser);
+                        window.saveState();
+                        showModal('Gemeldet', 'Vielen Dank. Der Kommentar wurde an die Moderation gemeldet.');
+                    } else {
+                        showModal('Bereits gemeldet', 'Du hast diesen Kommentar bereits gemeldet.');
+                    }
+                }
+            }
+        }
+
+        window.unreportComment = function(articleId, commentId) {
+            const article = articles.find(a => a.id === articleId);
+            if(article) {
+                const comment = article.comments.find(c => c.id === commentId);
+                if(comment) {
+                    comment.reportedBy = [];
+                    window.saveState();
+                    renderApp();
+                }
+            }
+        }
+
+        window.restoreComment = function(articleId, commentId) {
+            const article = articles.find(a => a.id === articleId);
+            if(article) {
+                const comment = article.comments.find(c => c.id === commentId);
+                if(comment) {
+                    if (!hasAdminAccess() && comment.deletedBy === 'admin') {
+                        showModal('Aktion nicht erlaubt', 'Dieser Kommentar wurde von einem Administrator gelöscht und kann nicht wiederhergestellt werden.');
+                        return;
+                    }
+                    comment.isDeleted = false;
+                    comment.deletedBy = null;
+                    window.saveState();
+                    renderApp();
+                }
+            }
+        }
+
+        window.deleteArticle = function(id) {
+            if(!hasAuthorAccess()) return;
+            currentModal = {
+                title: 'Artikel löschen?',
+                message: 'Möchtest du diesen Artikel wirklich unwiderruflich löschen?',
+                onConfirm: function() {
+                    articles = articles.filter(a => a.id !== id);
+                    currentModal = {
+                        title: 'Gelöscht',
+                        message: 'Der Artikel wurde erfolgreich aus dem System entfernt.'
+                    };
+                    window.saveState();
+                    renderApp(); 
+                }
+            };
+            renderApp();
+        }
+
+        window.executeConfirm = function() {
+            if (currentModal && currentModal.onConfirm) {
+                currentModal.onConfirm();
+            }
+        }
+        
+        window.viewUserDetails = function(username) {
+            if(!hasAdminAccess()) return;
+            adminSelectedUser = username;
+            adminTab = 'userDetails';
+            renderApp();
+        }
+
+        window.toggleUserBan = function(username) {
+            if(!hasAdminAccess()) return;
+            const user = registeredUsers.find(u => u.username === username);
+            if (user) {
+                user.isBanned = !user.isBanned;
+                window.saveState();
+                renderApp();
+            }
+        }
+
+        window.toggleUserDeleted = function(username) {
+            if(!hasAdminAccess()) return;
+            const user = registeredUsers.find(u => u.username === username);
+            if (user) {
+                user.isDeleted = !user.isDeleted;
+                window.saveState();
+                renderApp();
+            }
+        }
+        
+        window.permanentlyDeleteUser = function(username) {
+            if(!hasAdminAccess()) return;
+            currentModal = {
+                title: 'Account endgültig löschen?',
+                message: `Möchtest du den Account "${username}" wirklich unwiderruflich aus der Datenbank entfernen? Dies kann nicht rückgängig gemacht werden.`,
+                onConfirm: function() {
+                    registeredUsers = registeredUsers.filter(u => u.username !== username);
+                    
+                    articles.forEach(a => {
+                        a.views = a.views.filter(v => v !== username);
+                        a.likes = a.likes.filter(l => l !== username);
+                        a.comments.forEach(c => {
+                            if (c.username === username) {
+                                c.username = '[Gelöschter Nutzer]';
+                                c.isDeleted = true;
+                            }
+                            c.likes = c.likes.filter(l => l !== username);
+                            if (c.reportedBy) {
+                                c.reportedBy = c.reportedBy.filter(r => r !== username);
+                            }
+                        });
+                    });
+
+                    communityImages = communityImages.filter(img => img.uploader !== username);
+                    communityImages.forEach(img => {
+                        if (img.likes) {
+                            img.likes = img.likes.filter(l => l !== username);
+                        }
+                    });
+
+                    siteFeedbacks = siteFeedbacks.filter(fb => fb.username !== username);
+                    siteFeedbacks.forEach(fb => {
+                        if (fb.likes) {
+                            fb.likes = fb.likes.filter(l => l !== username);
+                        }
+                    });
+
+                    supportChats = supportChats.filter(chat => chat.userId !== username);
+                    
+                    currentModal = null;
+                    adminTab = 'users';
+                    adminSelectedUser = null;
+                    window.saveState();
+                    renderApp();
+                    showModal('Gelöscht', 'Der Account wurde endgültig aus der Datenbank gelöscht.');
+                }
+            };
+            renderApp();
+        }
+
+        window.confirmDeleteOwnAccount = function() {
+            currentModal = {
+                title: 'Konto löschen?',
+                message: 'Möchtest du dein Benutzerkonto wirklich löschen? Du kannst dich danach nicht mehr anmelden. Wenn du Fragen hast, kannst du jedoch weiterhin den Support kontaktieren.',
+                onConfirm: function() {
+                    const user = registeredUsers.find(u => u.username === currentUser);
+                    if (user) {
+                        user.isDeleted = true;
+                    }
+                    currentModal = null;
+                    window.saveState();
+                    handleUserLogout();
+                    showModal('Konto gelöscht', 'Dein Konto wurde erfolgreich gelöscht. Über den Support-Chat kannst du uns weiterhin erreichen.');
+                }
+            };
+            renderApp();
+        };
+
+        window.exportArticles = function() {
+            const dataStr = JSON.stringify(articles, null, 2);
+            const blob = new Blob([dataStr], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "winterthur_times_artikel.txt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showModal('Export erfolgreich', 'Die Artikel wurden als Textdatei (winterthur_times_artikel.txt) heruntergeladen.');
+        }
+
+        window.exportUsers = function() {
+            if (registeredUsers.length === 0) {
+                showModal('Keine Benutzer', 'Bisher haben sich noch keine Benutzer angemeldet.');
+                return;
+            }
+            const dataStr = JSON.stringify(registeredUsers, null, 2);
+            const blob = new Blob([dataStr], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "winterthur_times_benutzerliste.txt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showModal('Export erfolgreich', 'Die Benutzerliste wurde als Textdatei heruntergeladen.');
+        }
+
+        window.exportBackup = function() {
+            const backupData = {
+                articles: articles,
+                authors: authors,
+                categories: categories,
+                registeredUsers: registeredUsers,
+                supportChats: supportChats,
+                communityImages: communityImages,
+                siteFeedbacks: siteFeedbacks
+            };
+            const dataStr = JSON.stringify(backupData, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `winterthur_times_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showModal('Backup erfolgreich', 'Alle Systemdaten wurden sicher als Backup-Datei heruntergeladen.');
+        }
+
+        window.importBackup = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.articles && importedData.registeredUsers) {
+                        articles = importedData.articles;
+                        authors = importedData.authors || [];
+                        categories = importedData.categories || ["Politik", "Wirtschaft", "Gesellschaft", "Kultur", "Sport"];
+                        registeredUsers = importedData.registeredUsers;
+                        supportChats = importedData.supportChats || [];
+                        communityImages = importedData.communityImages || [];
+                        siteFeedbacks = importedData.siteFeedbacks || [];
+                        
+                        window.saveState();
+                        renderApp();
+                        showModal('Wiederherstellung erfolgreich', 'Das Backup wurde erfolgreich geladen. Alle Daten wurden auf den gesicherten Stand zurückgesetzt.');
+                    } else {
+                        throw new Error("Fehlerhaftes Format");
+                    }
+                } catch (error) {
+                    showModal('Import fehlgeschlagen', 'Die Datei ist beschädigt oder kein gültiges System-Backup.');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        window.importArticles = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        articles = importedData;
+                        window.saveState();
+                        renderApp(); 
+                        showModal('Import erfolgreich', 'Die Artikel aus deiner Textdatei wurden erfolgreich geladen und ersetzen nun die alten Daten.');
+                    } else {
+                        throw new Error("Fehlerhaftes Format");
+                    }
+                } catch (error) {
+                    showModal('Import fehlgeschlagen', 'Die Datei konnte nicht gelesen werden. Stelle sicher, dass es die originale exportierte .txt Datei ist.');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        window.showModal = function(title, message) {
+            currentModal = { title, message };
+            renderApp();
+        }
+
+        window.closeModal = function() {
+            currentModal = null;
+            pendingChatOpen = false; 
+            pendingView = null;
+            renderApp();
+        }
+
+        window.toggleMenu = function() {
+            isMenuOpen = !isMenuOpen;
+            renderApp();
+        }
+
+        window.toggleSearch = function() {
+            isSearchOpen = !isSearchOpen;
+            if (!isSearchOpen && (view === 'search' || view === 'feedback')) {
+                searchQuery = ""; 
+                searchCategory = null;
+                setView('home');
+            } else {
+                renderApp();
+            }
+        }
+
+        window.handleSearch = function(event) {
+            if (event.key === 'Enter') executeSearch();
+        }
+
+        window.executeSearch = function() {
+            const input = document.getElementById('searchInput');
+            if (input && input.value.trim() !== '') {
+                searchQuery = input.value.trim();
+                searchCategory = null;
+                setView('search');
+            }
+        }
+
+        window.executeSearchCategory = function(category) {
+            searchCategory = category; 
+            searchQuery = ""; 
+            isSearchOpen = false; 
+            setView('search');
+        }
+
+        init3DLogo();
+        fetchWeather();
+        initFirebase();
+        renderApp();
