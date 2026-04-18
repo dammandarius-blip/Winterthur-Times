@@ -1,4 +1,4 @@
-﻿// --- GATEKEEPER KONFIGURATION ---
+// --- GATEKEEPER KONFIGURATION ---
         const ENABLE_STUDENT_GATEKEEPER = false;
         let hasPassedGatekeeper = !ENABLE_STUDENT_GATEKEEPER;
 
@@ -6,12 +6,12 @@
         // 🔴 ACHTUNG NETLIFY-NUTZER: FIREBASE KONFIGURATION 🔴
         // =======================================================================
         let myFirebaseConfig = {
-            apiKey: "DEIN_API_KEY_HIER",
-            authDomain: "DEIN_PROJEKT_ID.firebaseapp.com",
-            projectId: "DEIN_PROJEKT_ID",
-            storageBucket: "DEIN_PROJEKT_ID.appspot.com",
-            messagingSenderId: "DEINE_SENDER_ID",
-            appId: "DEINE_APP_ID"
+            apiKey: "AIzaSyDiYFdcmwniMpAuFB_N2kAkD9AIgHhgaVU",
+            authDomain: "winterthurtimes.firebaseapp.com",
+            projectId: "winterthurtimes",
+            storageBucket: "winterthurtimes.firebasestorage.app",
+            messagingSenderId: "558050711365",
+            appId: "1:558050711365:web:6d37ce9f1b6b1128cdd02c"
         };
 
         window.saveState = async function() {
@@ -89,6 +89,217 @@
         let adminSelectedChatId = null;
         
         let isFirebaseConnected = false;
+
+        // --- GEMEINSAME DATEN (Firebase) ---
+        // Hinweis: GitHub Pages ist statisch – man kann keine "User/Chat/Artikel-Dateien" im Repo zur Laufzeit
+        // überschreiben. Für gemeinsame Daten nutzen wir daher Firestore-Dokumente, quasi wie separate Dateien:
+        // - data/users    (Benutzer-Profile/Rollen)
+        // - data/chats    (Support-Chats)
+        // - data/articles (Artikel + Autoren/Kategorien + Community/Feedback)
+        let firebaseApp = null;
+        let firebaseDb = null;
+        let firebaseAuth = null;
+        let isApplyingRemoteState = false;
+        let saveDebounceHandle = null;
+
+        function isFirebaseConfigured() {
+            if (!myFirebaseConfig) return false;
+            if (!myFirebaseConfig.apiKey || myFirebaseConfig.apiKey === "DEIN_API_KEY_HIER") return false;
+            if (!myFirebaseConfig.projectId || myFirebaseConfig.projectId === "DEIN_PROJEKT_ID") return false;
+            return true;
+        }
+
+        function sanitizeUsersForRemote(users) {
+            // Passwörter werden nie remote gespeichert (Firebase Auth übernimmt das).
+            return (users || []).map(u => ({
+                username: u.username,
+                firstName: u.firstName || "",
+                lastName: u.lastName || "",
+                email: u.email || "",
+                bio: u.bio || "",
+                profilePicUrl: u.profilePicUrl || "",
+                showRealName: !!u.showRealName,
+                isBanned: !!u.isBanned,
+                isDeleted: !!u.isDeleted,
+                role: u.role || "user"
+            }));
+        }
+
+        async function seedDocIfMissing(docRef, seedData) {
+            const snap = await docRef.get();
+            if (!snap.exists) {
+                await docRef.set(seedData);
+            }
+        }
+
+        async function persistRemoteState() {
+            if (!isFirebaseConnected || !firebaseDb) return;
+            if (isApplyingRemoteState) return;
+
+            const now = firebase.firestore.FieldValue.serverTimestamp();
+            const dataCol = firebaseDb.collection('data');
+
+            const articlesDoc = dataCol.doc('articles');
+            const chatsDoc = dataCol.doc('chats');
+            const usersDoc = dataCol.doc('users');
+
+            const batch = firebaseDb.batch();
+            batch.set(articlesDoc, {
+                articles: articles,
+                authors: authors,
+                categories: categories,
+                communityImages: communityImages,
+                siteFeedbacks: siteFeedbacks,
+                updatedAt: now
+            }, { merge: true });
+            batch.set(chatsDoc, { supportChats: supportChats, updatedAt: now }, { merge: true });
+            batch.set(usersDoc, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: now }, { merge: true });
+
+            await batch.commit();
+        }
+
+        function scheduleRemoteSave() {
+            if (!isFirebaseConnected) return;
+            if (isApplyingRemoteState) return;
+            if (saveDebounceHandle) clearTimeout(saveDebounceHandle);
+            saveDebounceHandle = setTimeout(() => {
+                persistRemoteState().catch(err => console.error('Firebase Save fehlgeschlagen:', err));
+            }, 700);
+        }
+
+        async function initFirebase() {
+            if (!isFirebaseConfigured()) return;
+            if (!window.firebase) {
+                console.warn('Firebase SDK nicht geladen (fehlende <script>-Tags in index.html?)');
+                return;
+            }
+
+            try {
+                firebaseApp = firebase.initializeApp(myFirebaseConfig);
+                firebaseDb = firebase.firestore();
+                firebaseAuth = firebase.auth();
+                isFirebaseConnected = true;
+
+                // saveState global auf "remote speichern" umbiegen (debounced)
+                window.saveState = scheduleRemoteSave;
+
+                const dataCol = firebaseDb.collection('data');
+                const articlesDoc = dataCol.doc('articles');
+                const chatsDoc = dataCol.doc('chats');
+                const usersDoc = dataCol.doc('users');
+
+                // Erstes Setup: wenn noch nichts in Firestore ist, initiale Daten hochladen.
+                await seedDocIfMissing(articlesDoc, {
+                    articles: articles,
+                    authors: authors,
+                    categories: categories,
+                    communityImages: communityImages,
+                    siteFeedbacks: siteFeedbacks,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await seedDocIfMissing(chatsDoc, { supportChats: supportChats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await seedDocIfMissing(usersDoc, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+                // Realtime Sync: sobald jemand anders etwas ändert, aktualisieren wir die lokalen Arrays.
+                articlesDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+                    if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
+                    const data = snap.data() || {};
+                    isApplyingRemoteState = true;
+                    try {
+                        if (Array.isArray(data.articles)) articles = data.articles;
+                        if (Array.isArray(data.authors)) authors = data.authors;
+                        if (Array.isArray(data.categories)) categories = data.categories;
+                        if (Array.isArray(data.communityImages)) communityImages = data.communityImages;
+                        if (Array.isArray(data.siteFeedbacks)) siteFeedbacks = data.siteFeedbacks;
+                    } finally {
+                        isApplyingRemoteState = false;
+                    }
+                    renderApp();
+                });
+
+                chatsDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+                    if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
+                    const data = snap.data() || {};
+                    isApplyingRemoteState = true;
+                    try {
+                        if (Array.isArray(data.supportChats)) supportChats = data.supportChats;
+                    } finally {
+                        isApplyingRemoteState = false;
+                    }
+                    renderApp();
+                });
+
+                usersDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+                    if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
+                    const data = snap.data() || {};
+                    isApplyingRemoteState = true;
+                    try {
+                        if (Array.isArray(data.registeredUsers)) registeredUsers = data.registeredUsers;
+                    } finally {
+                        isApplyingRemoteState = false;
+                    }
+                    renderApp();
+                });
+
+                // Auth Sync: wenn der User über Firebase ein-/ausloggt
+                firebaseAuth.onAuthStateChanged((user) => {
+                    if (!user) {
+                        currentUser = null;
+                        supportUser = 'Gast-' + sessionId;
+                        renderApp();
+                        return;
+                    }
+
+                    const name = (user.displayName && user.displayName.trim() !== '') ? user.displayName.trim() : (user.email || 'User');
+                    currentUser = name;
+                    supportUser = name;
+
+                    // Blockieren, falls gesperrt/gelöscht
+                    const profile = registeredUsers.find(u => u.username === name) || null;
+                    if (profile && (profile.isBanned || profile.isDeleted)) {
+                        const msg = profile.isDeleted
+                            ? "Dein Account wurde gelöscht. Bitte wende dich an den Support."
+                            : "Dein Account wurde gesperrt. Bitte wende dich an den Support.";
+                        showModal('Zugriff verweigert', msg);
+                        firebaseAuth.signOut().catch(() => {});
+                        return;
+                    }
+
+                    // Falls User noch kein Profil-Objekt hat, legen wir eins an (minimale Daten).
+                    if (!profile) {
+                        registeredUsers.push({
+                            username: name,
+                            firstName: "",
+                            lastName: "",
+                            email: user.email || "",
+                            bio: "",
+                            profilePicUrl: "",
+                            showRealName: false,
+                            isBanned: false,
+                            isDeleted: false,
+                            role: "user"
+                        });
+                        window.saveState();
+                    }
+
+                    if (pendingChatOpen) {
+                        isSupportChatOpen = true;
+                        pendingChatOpen = false;
+                    }
+                    if (pendingView) {
+                        setView(pendingView);
+                        pendingView = null;
+                    } else {
+                        renderApp();
+                    }
+                });
+
+                console.log('Firebase verbunden.');
+            } catch (err) {
+                console.error('Firebase Init fehlgeschlagen:', err);
+                isFirebaseConnected = false;
+            }
+        }
 
         // --- 3D LOGO INTEGRATION (THREE.JS) ---
         let logoRenderer, logoScene, logoCamera, logoInteractiveGroup, logoGroup;
@@ -1451,11 +1662,7 @@
                                             </select>
                                         </p>
 
-                                        ${isSuperAdmin ? `
-                                            <p class="text-gray-700 mt-2"><span class="font-bold">Passwort:</span> <span class="bg-gray-200 px-2 py-0.5 rounded font-mono text-sm">${u.password}</span> <span class="text-[10px] text-red-500 ml-2 uppercase font-bold">(Nur für main-Admin sichtbar)</span></p>
-                                        ` : `
-                                            <p class="text-gray-700 mt-2"><span class="font-bold">Passwort:</span> <span class="bg-gray-200 px-2 py-0.5 rounded font-mono text-sm">********</span> <span class="text-[10px] text-gray-500 ml-2 uppercase font-bold">(Versteckt)</span></p>
-                                        `}
+                                        <p class="text-gray-700 mt-2"><span class="font-bold">Passwort:</span> <span class="bg-gray-200 px-2 py-0.5 rounded font-mono text-sm">Firebase Auth</span> <span class="text-[10px] text-gray-500 ml-2 uppercase font-bold">(nicht in der App gespeichert)</span></p>
                                         
                                         ${u.bio ? `<p class="text-sm bg-white border border-gray-200 p-3 rounded text-gray-700 mt-3 italic">"${u.bio}"</p>` : ''}
                                         
@@ -1908,7 +2115,7 @@
                     
                     ${currentModal.type === 'login' ? `
                         <div class="flex flex-col gap-3 mb-6">
-                            <input type="text" id="usernameInput" placeholder="Benutzername" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
+                            <input type="text" id="usernameInput" placeholder="Benutzername oder E-Mail" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
                             <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); loginUser(); }" />
                             <p id="loginWarning" class="text-red-500 text-sm hidden font-bold mt-1"></p>
                         </div>
@@ -2498,8 +2705,38 @@
             const usernameInput = document.getElementById('usernameInput');
             const passwordInput = document.getElementById('passwordInput');
 
-            const username = usernameInput ? usernameInput.value.trim() : '';
+            const identifier = usernameInput ? usernameInput.value.trim() : '';
             const password = passwordInput ? passwordInput.value.trim() : '';
+
+            // Wenn Firebase aktiv ist, läuft Login über Firebase Auth (E-Mail + Passwort).
+            if (isFirebaseConnected && firebaseAuth) {
+                if (!identifier || !password) {
+                    showWarning("Bitte fülle Benutzername/E-Mail und Passwort aus.");
+                    return;
+                }
+
+                const mappedEmail = identifier.includes('@')
+                    ? identifier
+                    : ((registeredUsers.find(u => u.username === identifier) || {}).email || '');
+
+                if (!mappedEmail || !mappedEmail.includes('@')) {
+                    showWarning("Bitte gib deine E-Mail ein (oder registriere dich zuerst).");
+                    return;
+                }
+
+                firebaseAuth.signInWithEmailAndPassword(mappedEmail, password)
+                    .then(() => {
+                        currentModal = null;
+                        renderApp();
+                    })
+                    .catch((err) => {
+                        console.error('Firebase Login fehlgeschlagen:', err);
+                        showWarning("Login fehlgeschlagen. Prüfe E-Mail/Passwort.");
+                    });
+                return;
+            }
+
+            const username = identifier; // Fallback (ohne Firebase): altes System
 
             if (!username || !password) {
                 showWarning("Bitte fülle Benutzername und Passwort aus.");
@@ -2577,6 +2814,67 @@
                 return;
             }
 
+            // Wenn Firebase aktiv ist, wird der Account über Firebase Auth angelegt.
+            if (isFirebaseConnected && firebaseAuth) {
+                if (!email) {
+                    showWarning("Für den Online-Account ist eine E-Mail-Adresse erforderlich.");
+                    return;
+                }
+                if (password.length < 6) {
+                    showWarning("Das Passwort muss mindestens 6 Zeichen lang sein.");
+                    return;
+                }
+
+                firebaseAuth.createUserWithEmailAndPassword(email, password)
+                    .then(({ user }) => {
+                        // DisplayName nutzen wir als "Benutzername" in Kommentaren/Likes etc.
+                        return user.updateProfile({ displayName: username });
+                    })
+                    .then(() => {
+                        registeredUsers.push({
+                            username: username,
+                            // Passwörter werden NICHT im Frontend gespeichert, Firebase Auth übernimmt das.
+                            firstName: firstName,
+                            lastName: lastName,
+                            email: email,
+                            bio: "",
+                            profilePicUrl: "",
+                            showRealName: false,
+                            isBanned: false,
+                            isDeleted: false,
+                            role: "user"
+                        });
+
+                        window.saveState();
+                        currentUser = username;
+                        currentModal = null;
+                        
+                        if (pendingChatOpen) {
+                            isSupportChatOpen = true;
+                            pendingChatOpen = false;
+                        }
+                        
+                        if (pendingView) {
+                            setView(pendingView);
+                            pendingView = null;
+                        } else {
+                            renderApp();
+                        }
+
+                        if(isSupportChatOpen) {
+                            setTimeout(() => {
+                                const input = document.getElementById('support-input');
+                                if(input) input.focus();
+                            }, 100);
+                        }
+                    })
+                    .catch((err) => {
+                        console.error('Firebase Registrierung fehlgeschlagen:', err);
+                        showWarning("Registrierung fehlgeschlagen. Evtl. ist die E-Mail schon vergeben?");
+                    });
+                return;
+            }
+
             registeredUsers.push({
                 username: username,
                 password: password,
@@ -2617,6 +2915,9 @@
         }
 
         window.handleUserLogout = function() {
+            if (isFirebaseConnected && firebaseAuth) {
+                firebaseAuth.signOut().catch(err => console.error('Firebase Logout fehlgeschlagen:', err));
+            }
             currentUser = null;
             supportUser = 'Gast-' + sessionId; 
             
@@ -3270,5 +3571,6 @@
 
         init3DLogo();
         fetchWeather();
+        initFirebase();
         renderApp();
 
