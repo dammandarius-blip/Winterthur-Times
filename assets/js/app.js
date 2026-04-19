@@ -2909,7 +2909,7 @@
         window.handleLogin = function(event) {
             event.preventDefault();
             const pwInput = document.getElementById('adminPassword').value;
-            if (pwInput === 'LOL') {
+            if (pwInput === 'WinterthurTimes') {
                 isSuperAdmin = true;
                 adminTab = 'articles';
                 setView('admin-dashboard');
