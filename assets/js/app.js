@@ -53,6 +53,9 @@
             { id: 1, username: "Darius Damman", text: "Hallo zusammen! Wir freuen uns über euer Feedback und eure Verbesserungsvorschläge.", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), likes: [], moderationStatus: 'approved' }
         ];
 
+        // AI Support Chat (über externen Worker). Nur UI/Chat-Logik liegt hier im Frontend.
+        let currentUserAiPreference = "Think";
+
         let view = 'home';
         let articles = JSON.parse(JSON.stringify(initialArticles));
         let selectedArticleId = null;
@@ -162,7 +165,7 @@
             if (saveDebounceHandle) clearTimeout(saveDebounceHandle);
             saveDebounceHandle = setTimeout(() => {
                 persistRemoteState().catch(err => console.error('Firebase Save fehlgeschlagen:', err));
-            }, 700);
+            }, 250);
         }
 
         async function initFirebase() {
@@ -507,6 +510,37 @@
                 if (ts) el.textContent = getTimeAgo(ts);
             });
         }, 60000);
+
+        // --- AI SUPPORT CHAT (Frontend + Worker) ---
+        window.setUserAiPreference = function(pref) {
+            currentUserAiPreference = pref;
+            renderApp();
+        }
+
+        window.rateAiMessage = function(chatId, msgIndex, rating) {
+            const chat = supportChats.find(c => c.id === chatId);
+            if (chat && chat.messages && chat.messages[msgIndex]) {
+                const msg = chat.messages[msgIndex];
+                if (msg.rating === rating) msg.rating = null;
+                else msg.rating = rating;
+                window.saveState();
+                renderApp();
+            }
+        }
+
+        window.getPopularArticles = function() {
+            const items = document.querySelectorAll(".meistgelesen-item");
+            return Array.from(items).map(el => el.textContent.trim());
+        }
+
+        window.toggleChatAi = function(chatId) {
+            let chat = supportChats.find(c => c.id === chatId);
+            if (chat) {
+                chat.aiEnabled = chat.aiEnabled === false ? true : false;
+                window.saveState();
+                renderApp();
+            }
+        }
 
         // --- MODERATION ---
 
@@ -1903,20 +1937,21 @@
             let userChat = supportChats.find(c => c.userId === activeChatUser);
             
             if (!userChat) {
-                userChat = { id: 'temp', messages: [] };
+                userChat = { id: 'temp', messages: [], aiEnabled: true };
             }
 
-            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support.</p>';
+            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support oder der KI.</p>';
             
             if (userChat && userChat.messages && userChat.messages.length > 0) {
                 messagesHtml = userChat.messages.map((m, index) => {
                     const isUser = m.sender === 'user';
+                    const isAi = m.sender === 'ai';
                     const isAdmin = m.sender === 'admin';
                     
                     let bgClass = isUser ? 'bg-blue-600 text-white' : (isAdmin ? 'bg-green-600 text-white' : 'bg-white border border-gray-300 text-gray-800');
                     let alignClass = isUser ? 'justify-end' : 'justify-start';
                     let roundedClass = isUser ? 'rounded-br-none' : 'rounded-bl-none';
-                    let senderLabel = isAdmin ? 'Admin' : '';
+                    let senderLabel = isAdmin ? 'Admin' : (isAi ? 'KI-Assistent' : '');
                     
                     return `
                     <div class="flex ${alignClass} mb-3 group">
@@ -1924,9 +1959,16 @@
                             ${!isUser ? `<div class="text-[10px] text-gray-400 ml-1 mb-0.5 font-bold uppercase">${senderLabel}</div>` : ''}
                             <div class="p-3 rounded-lg ${bgClass} shadow-sm ${roundedClass} text-sm">
                                 ${m.text.replace(/\n/g, '<br/>')}
+                                ${m.isThinking ? '<span class="inline-flex space-x-1 ml-2"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span></span>' : ''}
                             </div>
                             <div class="flex items-center mt-1 gap-2 ${isUser ? 'justify-end' : 'justify-start'}">
                                 <span class="text-[9px] text-gray-400">${new Date(m.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</span>
+                                ${isAi && !m.isThinking ? `
+                                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'up')" class="text-gray-400 hover:text-green-500 ${m.rating === 'up' ? 'text-green-500' : ''}"><i data-lucide="thumbs-up" class="w-3 h-3"></i></button>
+                                        <button onclick="rateAiMessage(${userChat.id}, ${index}, 'down')" class="text-gray-400 hover:text-red-500 ${m.rating === 'down' ? 'text-red-500' : ''}"><i data-lucide="thumbs-down" class="w-3 h-3"></i></button>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -1953,13 +1995,16 @@
                             <h3 class="font-bold leading-none mb-1 text-sm">Winterthur Times</h3>
                             <div class="flex items-center gap-2 text-xs text-blue-200">
                                 <span class="flex items-center gap-1">
-                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                    Support
+                                    <span class="w-2 h-2 rounded-full ${userChat.aiEnabled ? 'bg-green-400' : 'bg-gray-400'}"></span>
+                                    ${userChat.aiEnabled ? 'KI aktiv' : 'Live Support'}
                                 </span>
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
+                        <button onclick="toggleChatAi(${userChat.id})" class="text-blue-200 hover:text-white p-1" title="${userChat.aiEnabled ? 'KI deaktivieren' : 'KI aktivieren'}">
+                            <i data-lucide="${userChat.aiEnabled ? 'bot' : 'user'}" class="w-5 h-5"></i>
+                        </button>
                         <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
                             <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
@@ -1973,6 +2018,15 @@
 
                 <!-- Input Area -->
                 <div class="support-input-area bg-white border-t border-gray-200 p-3 flex flex-col gap-2 z-10">
+                    ${userChat.aiEnabled ? `
+                        <div class="flex items-center gap-2 px-1 mb-1">
+                            <span class="text-[10px] font-bold text-gray-500 uppercase">Modus:</span>
+                            <select onchange="setUserAiPreference(this.value)" class="text-[10px] border border-gray-200 rounded bg-gray-50 px-1 py-0.5 outline-none cursor-pointer">
+                                <option value="Think" ${currentUserAiPreference === 'Think' ? 'selected' : ''}>Erklären & Nachdenken</option>
+                                <option value="Response" ${currentUserAiPreference === 'Response' ? 'selected' : ''}>Direkte Antwort</option>
+                            </select>
+                        </div>
+                    ` : ''}
                     <div class="flex gap-2 items-end">
                         <textarea id="support-input" rows="1" placeholder="Schreibe eine Nachricht..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none max-h-24 overflow-y-auto bg-gray-50 focus:bg-white transition-colors" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportMessage(); }"></textarea>
                         <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer shrink-0">
@@ -1980,7 +2034,7 @@
                         </button>
                     </div>
                     <div class="text-[9px] text-center text-gray-400 mt-1">
-                        Wir antworten so schnell wie möglich.
+                        ${userChat.aiEnabled ? 'KI kann Fehler machen. Überprüfe wichtige Informationen.' : 'Wir antworten so schnell wie möglich.'}
                     </div>
                 </div>
             </div>
@@ -2232,6 +2286,11 @@
         }
 
         window.sendFeedback = function() {
+            if (!currentUser) {
+                pendingView = 'feedback';
+                showUserLogin();
+                return;
+            }
             const input = document.getElementById('feedbackInput');
             if(!input || input.value.trim() === '') return;
             
@@ -2504,7 +2563,7 @@
             
             let chat = supportChats.find(c => c.userId === activeChatUser);
             if(!chat) {
-                chat = { id: Date.now(), userId: activeChatUser, messages: [] };
+                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: true };
                 supportChats.push(chat);
             }
             
@@ -2525,6 +2584,67 @@
                 }, 50);
             };
             scrollDown();
+
+            if (chat.aiEnabled) {
+                const msgIndex = chat.messages.length;
+                chat.messages.push({
+                    sender: 'ai',
+                    text: '...',
+                    isThinking: true,
+                    timestamp: new Date().toISOString(),
+                    rating: null
+                });
+                renderApp();
+                scrollDown();
+
+                const WORKER_URL = "https://askai.mikestaub705.workers.dev/";
+
+                try {
+                    const userStatus = currentUser
+                        ? `eingeloggt als '${currentUser}' (Rolle: ${getCurrentUserRole()})`
+                        : "ein Gast (nicht eingeloggt)";
+
+                    const popularArticles = window.getPopularArticles();
+                    const popularContext = popularArticles.length > 0 ? ` Die aktuell meistgelesenen Artikel sind: ${popularArticles.join(', ')}.` : "";
+
+                    const modeHint = currentUserAiPreference === 'Response'
+                        ? "Antworte kurz und direkt."
+                        : "Erkläre verständlich und denke kurz mit.";
+
+                    const contextPrefix =
+                        `[System-Info: Du bist der KI-Support der Zeitung 'Winterthur Times'. Der User ist ${userStatus}. ` +
+                        `Der User befindet sich aktuell auf der Seite/Ansicht: '${view}'.${popularContext} ${modeHint}]\nNutzerfrage: `;
+
+                    window.isLoggedIn = !!currentUser;
+
+                    const res = await fetch(WORKER_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            message: contextPrefix + text,
+                            loggedIn: window.isLoggedIn === true,
+                            popularArticles: popularArticles
+                        })
+                    });
+                    const data = await res.json();
+
+                    if (chat.messages[msgIndex]) {
+                        chat.messages[msgIndex].isThinking = false;
+                        chat.messages[msgIndex].text = data.reply || "Es ist ein Fehler aufgetreten.";
+                        window.saveState();
+                        renderApp();
+                        scrollDown();
+                    }
+                } catch (e) {
+                    if (chat.messages[msgIndex]) {
+                        chat.messages[msgIndex].isThinking = false;
+                        chat.messages[msgIndex].text = "Verbindungsfehler zum Support-Dienst.";
+                        window.saveState();
+                        renderApp();
+                        scrollDown();
+                    }
+                }
+            }
         }
 
         window.adminReplySupportMessage = function(chatId) {
