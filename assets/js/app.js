@@ -1770,6 +1770,15 @@
                                                 ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
                                                 ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
                                             </h4>
+                                            <button onclick="toggleChatAi(${chat.id})"
+                                                title="${chat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
+                                                class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer
+                                                ${chat.aiEnabled !== false
+                                                    ? 'bg-green-50 border-green-300 text-green-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                                                    : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-300 hover:text-green-700'}">
+                                                <i data-lucide="${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3.5 h-3.5"></i>
+                                                KI ${chat.aiEnabled !== false ? 'AN' : 'AUS'}
+                                            </button>
                                         </div>
                                         
                                         <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
@@ -1981,6 +1990,21 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
+                        <!-- KI Ein/Aus Toggle -->
+                        ${userChat.id !== 'temp' ? `
+                        <button onclick="toggleChatAi(${userChat.id})" title="${userChat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
+                            class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors cursor-pointer
+                            ${userChat.aiEnabled !== false
+                                ? 'bg-green-500/20 border-green-400/50 text-green-300 hover:bg-red-500/20 hover:border-red-400/50 hover:text-red-300'
+                                : 'bg-gray-500/20 border-gray-400/50 text-gray-400 hover:bg-green-500/20 hover:border-green-400/50 hover:text-green-300'}">
+                            <i data-lucide="${userChat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3 h-3"></i>
+                            KI ${userChat.aiEnabled !== false ? 'AN' : 'AUS'}
+                        </button>
+                        ` : `
+                        <span class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-green-500/20 border-green-400/50 text-green-300">
+                            <i data-lucide="bot" class="w-3 h-3"></i> KI AN
+                        </span>
+                        `}
                         <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
                             <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
@@ -2000,8 +2024,10 @@
                             <i data-lucide="send" class="w-4 h-4"></i>
                         </button>
                     </div>
-                    <div class="text-[9px] text-center text-gray-400 mt-1">
-                        Wir antworten so schnell wie möglich.
+                    <div class="text-[9px] text-center mt-1 ${userChat.aiEnabled === false ? 'text-orange-400 font-bold' : 'text-gray-400'}">
+                        ${userChat.aiEnabled === false
+                            ? '⚠ KI deaktiviert – warte auf manuelle Antwort vom Team.'
+                            : 'Wir antworten so schnell wie möglich.'}
                     </div>
                 </div>
             </div>
