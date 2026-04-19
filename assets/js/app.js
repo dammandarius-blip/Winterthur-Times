@@ -521,12 +521,16 @@
         };
 
         window.toggleChatAi = function(chatId) {
+            const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
             let chat = supportChats.find(c => c.id === chatId);
-            if (chat) {
-                chat.aiEnabled = chat.aiEnabled === false ? true : false;
-                window.saveState();
-                renderApp();
+            // Falls noch kein echter Chat existiert (temp), einen anlegen
+            if (!chat) {
+                chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: true };
+                supportChats.push(chat);
             }
+            chat.aiEnabled = chat.aiEnabled === false ? true : false;
+            window.saveState();
+            renderApp();
         };
 
         // --- MODERATION ---
@@ -1990,21 +1994,16 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <!-- KI Ein/Aus Toggle -->
-                        ${userChat.id !== 'temp' ? `
-                        <button onclick="toggleChatAi(${userChat.id})" title="${userChat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
-                            class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors cursor-pointer
+                        <!-- KI Ein/Aus Toggle – für alle Nutzer sichtbar -->
+                        <button onclick="toggleChatAi(${userChat.id})"
+                            title="${userChat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
+                            class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all cursor-pointer
                             ${userChat.aiEnabled !== false
                                 ? 'bg-green-500/20 border-green-400/50 text-green-300 hover:bg-red-500/20 hover:border-red-400/50 hover:text-red-300'
-                                : 'bg-gray-500/20 border-gray-400/50 text-gray-400 hover:bg-green-500/20 hover:border-green-400/50 hover:text-green-300'}">
+                                : 'bg-gray-500/20 border-gray-400/50 text-gray-300 hover:bg-green-500/20 hover:border-green-400/50 hover:text-green-300'}">
                             <i data-lucide="${userChat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3 h-3"></i>
                             KI ${userChat.aiEnabled !== false ? 'AN' : 'AUS'}
                         </button>
-                        ` : `
-                        <span class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-green-500/20 border-green-400/50 text-green-300">
-                            <i data-lucide="bot" class="w-3 h-3"></i> KI AN
-                        </span>
-                        `}
                         <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
                             <i data-lucide="x" class="w-5 h-5"></i>
                         </button>
@@ -2026,7 +2025,7 @@
                     </div>
                     <div class="text-[9px] text-center mt-1 ${userChat.aiEnabled === false ? 'text-orange-400 font-bold' : 'text-gray-400'}">
                         ${userChat.aiEnabled === false
-                            ? '⚠ KI deaktiviert – warte auf manuelle Antwort vom Team.'
+                            ? '⚠ KI deaktiviert – du wartest auf manuelle Antwort.'
                             : 'Wir antworten so schnell wie möglich.'}
                     </div>
                 </div>
