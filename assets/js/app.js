@@ -522,8 +522,9 @@
 
         window.toggleChatAi = function(chatId) {
             const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
-            let chat = supportChats.find(c => c.id === chatId);
-            // Falls noch kein echter Chat existiert (temp), einen anlegen
+            // == statt === damit Zahl/String-Vergleich klappt; Fallback per userId
+            let chat = supportChats.find(c => c.id == chatId)
+                    || supportChats.find(c => c.userId === activeChatUser);
             if (!chat) {
                 chat = { id: Date.now(), userId: activeChatUser, messages: [], aiEnabled: true };
                 supportChats.push(chat);
@@ -1774,8 +1775,8 @@
                                                 ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
                                                 ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
                                             </h4>
-                                            <button onclick="toggleChatAi(${chat.id})"
-                                                title="${chat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
+                                            <button onclick="toggleChatAi('${chat.id}')"
+                                                title="${chat.aiEnabled !== false ? 'KI deaktivieren' : 'KI aktivieren'}"
                                                 class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer
                                                 ${chat.aiEnabled !== false
                                                     ? 'bg-green-50 border-green-300 text-green-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
@@ -1994,8 +1995,7 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <!-- KI Ein/Aus Toggle – für alle Nutzer sichtbar -->
-                        <button onclick="toggleChatAi(${userChat.id})"
+                        <button onclick="toggleChatAi('${userChat.id}')"
                             title="${userChat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
                             class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all cursor-pointer
                             ${userChat.aiEnabled !== false
