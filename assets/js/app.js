@@ -15,8 +15,7 @@
         };
 
         window.saveState = async function() {
-            // Offline-Fallback: lokale Persistenz (z.B. Support-Chat).
-            persistLocalSupportState();
+            // Dies ist ein Platzhalter. Er wird überschrieben, sobald Firebase bereit ist.
         };
 
         // --- DATEN ---
@@ -69,56 +68,15 @@
         
         let categories = ["Politik", "Wirtschaft", "Gesellschaft", "Kultur", "Sport", "Lokales", "Wissenschaft", "Unterhaltung", "Panorama"];
         
-        const LOCAL_GUEST_ID_KEY = 'wt_guest_id_v1';
-        const LOCAL_SUPPORT_STATE_KEY = 'wt_support_state_v1';
-
-        function getOrCreateGuestId() {
-            try {
-                const existing = (localStorage.getItem(LOCAL_GUEST_ID_KEY) || '').trim();
-                if (existing) return existing;
-                const created = Math.random().toString(36).substring(2, 10);
-                localStorage.setItem(LOCAL_GUEST_ID_KEY, created);
-                return created;
-            } catch (_) {
-                return Math.random().toString(36).substring(2, 10);
-            }
-        }
-
-        function loadLocalSupportState() {
-            try {
-                const raw = localStorage.getItem(LOCAL_SUPPORT_STATE_KEY);
-                if (!raw) return null;
-                const parsed = JSON.parse(raw);
-                if (!parsed || typeof parsed !== 'object') return null;
-                return parsed;
-            } catch (_) {
-                return null;
-            }
-        }
-
-        function persistLocalSupportState() {
-            try {
-                const payload = {
-                    guestId: sessionId,
-                    supportChats: supportChats
-                };
-                localStorage.setItem(LOCAL_SUPPORT_STATE_KEY, JSON.stringify(payload));
-            } catch (_) {}
-        }
-
         let currentUser = null;
-        let sessionId = getOrCreateGuestId();
+        let sessionId = Math.random().toString(36).substring(2, 10);
         let supportUser = 'Gast-' + sessionId; 
         
         let registeredUsers = [
         ]; 
         
         let isSupportChatOpen = false;
-        let supportChats = (() => {
-            const state = loadLocalSupportState();
-            if (state && Array.isArray(state.supportChats)) return state.supportChats;
-            return [];
-        })(); 
+        let supportChats = []; 
         let adminSelectedChatId = null;
         
         let isFirebaseConnected = false;
@@ -316,13 +274,9 @@
         function scheduleRemoteSave() {
             if (!isFirebaseConnected) return;
             if (isApplyingRemoteState) return;
-            // Immer sofort lokal sichern (Reload-sicher), Remote kommt (debounced) danach.
-            persistLocalSupportState();
             if (saveDebounceHandle) clearTimeout(saveDebounceHandle);
             saveDebounceHandle = setTimeout(() => {
                 persistRemoteState().catch(err => console.error('Firebase Save fehlgeschlagen:', err));
-                // Immer zusätzlich lokal sichern (Reload-sicher, auch wenn Firestore-Regeln es blocken).
-                persistLocalSupportState();
             }, 700);
         }
 
@@ -390,7 +344,6 @@
                     } finally {
                         isApplyingRemoteState = false;
                     }
-                    persistLocalSupportState();
                     renderApp();
                 });
 
@@ -766,7 +719,6 @@
             }
             chat.aiEnabled = chat.aiEnabled === false ? true : false;
             window.saveState();
-            persistLocalSupportState();
             renderApp();
         };
 
@@ -2862,7 +2814,6 @@
             
             input.value = '';
             window.saveState();
-            persistLocalSupportState();
             renderApp();
             
             const scrollDown = () => {
@@ -2915,7 +2866,6 @@
                         chat.messages[msgIndex].isThinking = false;
                         chat.messages[msgIndex].text = data.reply || "Es ist ein Fehler aufgetreten.";
                         window.saveState();
-                        persistLocalSupportState();
                         renderApp();
                         scrollDown();
                     }
@@ -2924,7 +2874,6 @@
                         chat.messages[msgIndex].isThinking = false;
                         chat.messages[msgIndex].text = "Verbindungsfehler zum KI-Support-Dienst.";
                         window.saveState();
-                        persistLocalSupportState();
                         renderApp();
                         scrollDown();
                     }
@@ -2944,7 +2893,6 @@
                     timestamp: new Date().toISOString()
                 });
                 window.saveState();
-                persistLocalSupportState();
             }
             renderApp();
             
