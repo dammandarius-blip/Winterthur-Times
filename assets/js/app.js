@@ -513,7 +513,7 @@
             const radius = 2;
             const polyGeometry = new THREE.IcosahedronGeometry(radius, 2);
             const edges = new THREE.EdgesGeometry(polyGeometry);
-            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xb0b0b0, linewidth: 1, transparent: true, opacity: 0.5 });
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xb0b0b0, linewidth: 1, transparent: true, opacity: 0.4 });
             const polygonSphere = new THREE.LineSegments(edges, lineMaterial);
             logoGroup.add(polygonSphere);
 
@@ -526,7 +526,7 @@
             ctx.font = 'bold 110px "Times New Roman", Times, serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('WINTERTHUR TIMES', canvas.width / 2, canvas.height / 3);
+            ctx.fillText('WINTERTHUR TIMES', canvas.width / 2, canvas.height / 2);
 
             const textTexture = new THREE.CanvasTexture(canvas);
             textTexture.anisotropy = logoRenderer.capabilities.getMaxAnisotropy();
