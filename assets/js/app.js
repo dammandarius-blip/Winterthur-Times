@@ -132,6 +132,7 @@
         let firebaseApp = null;
         let firebaseDb = null;
         let firebaseAuth = null;
+        let firebaseStorage = null;
         let isApplyingRemoteState = false;
         let saveDebounceHandle = null;
         
@@ -164,6 +165,7 @@
             if (!isFirebaseConnected || !firebaseDb) return false;
             if (!toEmail || !toEmail.includes('@')) return false;
             // Erwartet Firebase Extension "Trigger Email" (Collection: mail)
+            console.log('Abo-Mail: queueEmail -> mail.add', { toEmail, subject });
             await firebaseDb.collection('mail').add({
                 to: [toEmail],
                 message: {
@@ -335,6 +337,11 @@
                 firebaseApp = firebase.initializeApp(myFirebaseConfig);
                 firebaseDb = firebase.firestore();
                 firebaseAuth = firebase.auth();
+                try {
+                    firebaseStorage = firebase.storage();
+                } catch (e) {
+                    firebaseStorage = null;
+                }
                 isFirebaseConnected = true;
 
                 // saveState global auf "remote speichern" umbiegen (debounced)
@@ -462,6 +469,18 @@
                 console.error('Firebase Init fehlgeschlagen:', err);
                 isFirebaseConnected = false;
             }
+        }
+
+        async function uploadProfilePicToStorage(file, username) {
+            if (!isFirebaseConnected || !firebaseStorage) throw new Error('Firebase Storage nicht verfügbar');
+            if (!file) throw new Error('Keine Datei');
+            const safeName = (username || 'user').toString().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+            const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase() : 'png';
+            const path = `profile_pics/${safeName}_${Date.now()}.${ext}`;
+            const ref = firebaseStorage.ref().child(path);
+            const snap = await ref.put(file, { contentType: file.type || undefined });
+            const url = await snap.ref.getDownloadURL();
+            return url;
         }
 
         // --- 3D LOGO INTEGRATION (THREE.JS) ---
@@ -3409,12 +3428,28 @@
                 };
 
                 if (profilePicFile) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        user.profilePicUrl = e.target.result;
-                        applySave();
-                    };
-                    reader.readAsDataURL(profilePicFile);
+                    if (isFirebaseConnected) {
+                        // In Firebase-Modus: niemals Base64 in Firestore speichern (Dokument-Limit).
+                        // Stattdessen in Firebase Storage hochladen und URL speichern.
+                        (async () => {
+                            try {
+                                showModal('Upload läuft…', 'Dein Profilbild wird hochgeladen.');
+                                const url = await uploadProfilePicToStorage(profilePicFile, currentUser);
+                                user.profilePicUrl = url;
+                                applySave();
+                            } catch (e) {
+                                console.error('Profilbild Upload fehlgeschlagen:', e);
+                                showModal('Fehler', 'Profilbild konnte nicht hochgeladen werden. Prüfe Firebase Storage / Regeln.');
+                            }
+                        })();
+                    } else {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            user.profilePicUrl = e.target.result;
+                            applySave();
+                        };
+                        reader.readAsDataURL(profilePicFile);
+                    }
                 } else {
                     if (profilePicUrl.trim() !== '') {
                         user.profilePicUrl = profilePicUrl.trim();
