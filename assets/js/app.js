@@ -526,7 +526,7 @@
             ctx.font = 'bold 110px "Times New Roman", Times, serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('WINTERTHUR TIMES', canvas.width / 2, canvas.height / 2);
+            ctx.fillText('WINTERTHUR TIMES', canvas.width / 2, canvas.height / 3);
 
             const textTexture = new THREE.CanvasTexture(canvas);
             textTexture.anisotropy = logoRenderer.capabilities.getMaxAnisotropy();
@@ -539,7 +539,7 @@
 
             document.addEventListener('mousemove', (event) => {
                 const windowHalfY = window.innerHeight / 2;
-                targetRotationX = (event.clientY - windowHalfY) * 0.001;
+                targetRotationX = (event.clientY - windowHalfY) * 0.0005;
             });
 
             animateLogo();
