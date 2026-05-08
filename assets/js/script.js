@@ -1,4 +1,4 @@
-const WORKER_BASE = "https://askai.mikestaub705.workers.dev/";
+const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
 
 const chatEl = document.getElementById("chat");
 const inputEl = document.getElementById("chatInput");
@@ -20,7 +20,7 @@ function renderMessages() {
 
 async function loadChat() {
   try {
-    const res = await fetch(${WORKER_BASE}/api/chat/load);
+    const res = await fetch(`${WORKER_BASE}/api/chat/load`);
     const data = await res.json();
     messages = data.messages || [];
     renderMessages();
@@ -28,11 +28,10 @@ async function loadChat() {
     console.error("Fehler beim Laden:", e);
   }
 }
-}
 
 async function saveChat() {
   try {
-    await fetch(${WORKER_BASE}/api/chat/save, {
+    await fetch(`${WORKER_BASE}/api/chat/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages })
@@ -54,7 +53,7 @@ async function sendMessage() {
   await saveChat();
 
   try {
-    const res = await fetch(${WORKER_BASE}/api/chat, {
+    const res = await fetch(`${WORKER_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
