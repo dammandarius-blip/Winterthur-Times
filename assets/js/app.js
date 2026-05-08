@@ -2324,7 +2324,7 @@
                     <div class="text-[9px] text-center mt-1 ${userChat.aiEnabled === false ? 'text-orange-400 font-bold' : 'text-gray-400'}">
                         ${userChat.aiEnabled === false
                             ? '⚠ KI deaktiviert – du wartest auf manuelle Antwort.'
-                            : 'Wir antworten so schnell wie möglich.'}
+                            : 'Wir antworten so schnell wie möglich. ⚠ Achtung, die KI kann fehler machen!'}
                     </div>
                 </div>
             </div>
