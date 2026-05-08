@@ -15,7 +15,8 @@
         };
 
         window.saveState = async function() {
-            // Dies ist ein Platzhalter. Er wird überschrieben, sobald Firebase bereit ist.
+            // Offline-Fallback: lokale Persistenz (z.B. Support-Chat).
+            persistLocalSupportState();
         };
 
         // --- DATEN ---
@@ -68,15 +69,56 @@
         
         let categories = ["Politik", "Wirtschaft", "Gesellschaft", "Kultur", "Sport", "Lokales", "Wissenschaft", "Unterhaltung", "Panorama"];
         
+        const LOCAL_GUEST_ID_KEY = 'wt_guest_id_v1';
+        const LOCAL_SUPPORT_STATE_KEY = 'wt_support_state_v1';
+
+        function getOrCreateGuestId() {
+            try {
+                const existing = (localStorage.getItem(LOCAL_GUEST_ID_KEY) || '').trim();
+                if (existing) return existing;
+                const created = Math.random().toString(36).substring(2, 10);
+                localStorage.setItem(LOCAL_GUEST_ID_KEY, created);
+                return created;
+            } catch (_) {
+                return Math.random().toString(36).substring(2, 10);
+            }
+        }
+
+        function loadLocalSupportState() {
+            try {
+                const raw = localStorage.getItem(LOCAL_SUPPORT_STATE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || typeof parsed !== 'object') return null;
+                return parsed;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function persistLocalSupportState() {
+            try {
+                const payload = {
+                    guestId: sessionId,
+                    supportChats: supportChats
+                };
+                localStorage.setItem(LOCAL_SUPPORT_STATE_KEY, JSON.stringify(payload));
+            } catch (_) {}
+        }
+
         let currentUser = null;
-        let sessionId = Math.random().toString(36).substring(2, 10);
+        let sessionId = getOrCreateGuestId();
         let supportUser = 'Gast-' + sessionId; 
         
         let registeredUsers = [
         ]; 
         
         let isSupportChatOpen = false;
-        let supportChats = []; 
+        let supportChats = (() => {
+            const state = loadLocalSupportState();
+            if (state && Array.isArray(state.supportChats)) return state.supportChats;
+            return [];
+        })(); 
         let adminSelectedChatId = null;
         
         let isFirebaseConnected = false;
@@ -92,6 +134,105 @@
         let firebaseAuth = null;
         let isApplyingRemoteState = false;
         let saveDebounceHandle = null;
+        
+        function ensureUserSubscriptions(user) {
+            if (!user || typeof user !== 'object') return user;
+            if (!user.subscriptions || typeof user.subscriptions !== 'object') user.subscriptions = {};
+            if (!Array.isArray(user.subscriptions.categories)) user.subscriptions.categories = [];
+            if (!Array.isArray(user.subscriptions.authors)) user.subscriptions.authors = [];
+            if (typeof user.emailNotifyEnabled !== 'boolean') user.emailNotifyEnabled = true;
+            return user;
+        }
+
+        function ensureAllUsersSubscriptions() {
+            if (!Array.isArray(registeredUsers)) registeredUsers = [];
+            registeredUsers = registeredUsers.map(u => ensureUserSubscriptions(u));
+        }
+
+        function getAllAuthorNames() {
+            const names = [];
+            try {
+                (getActiveAuthors() || []).forEach(a => { if (a && a.name) names.push(a.name); });
+            } catch (_) {}
+            try {
+                (articles || []).forEach(a => { if (a && a.author) names.push(a.author); });
+            } catch (_) {}
+            return Array.from(new Set(names.map(n => (n || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'de'));
+        }
+
+        async function queueEmail(toEmail, subject, html, text) {
+            if (!isFirebaseConnected || !firebaseDb) return false;
+            if (!toEmail || !toEmail.includes('@')) return false;
+            // Erwartet Firebase Extension "Trigger Email" (Collection: mail)
+            await firebaseDb.collection('mail').add({
+                to: [toEmail],
+                message: {
+                    subject: subject || 'Neue Nachricht',
+                    html: html || '',
+                    text: text || ''
+                },
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return true;
+        }
+
+        async function notifySubscribersOfArticle(article) {
+            if (!article) return;
+            if (!isFirebaseConnected || !firebaseDb) return;
+            ensureAllUsersSubscriptions();
+
+            const category = (article.category || '').trim();
+            const author = (article.author || '').trim();
+            const url = (location && location.href) ? location.href.split('#')[0] : '';
+            const subject = `Neue News: ${article.title || 'Artikel'}`;
+
+            const recipients = new Set();
+            registeredUsers.forEach(u => {
+                const user = ensureUserSubscriptions(u);
+                if (!user || user.isDeleted || user.isBanned) return;
+                if (!user.emailNotifyEnabled) return;
+                const email = (user.email || '').trim();
+                if (!email.includes('@')) return;
+                const subCats = user.subscriptions.categories || [];
+                const subAuthors = user.subscriptions.authors || [];
+                if ((category && subCats.includes(category)) || (author && subAuthors.includes(author))) {
+                    recipients.add(email);
+                }
+            });
+
+            if (recipients.size === 0) return;
+
+            const safeTitle = (article.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const safeSummary = (article.summary || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const deepLink = url || '';
+            const html = `
+                <div style="font-family: Arial, sans-serif; line-height: 1.5">
+                    <h2 style="margin:0 0 8px 0;">${safeTitle}</h2>
+                    <p style="margin:0 0 12px 0; color:#555;">${safeSummary}</p>
+                    <p style="margin:0 0 12px 0; color:#555;">
+                        <strong>Kategorie:</strong> ${category || '-'}<br/>
+                        <strong>Autor:</strong> ${author || '-'}
+                    </p>
+                    ${deepLink ? `<p style="margin:0 0 12px 0;"><a href="${deepLink}">Website öffnen</a></p>` : ''}
+                    <p style="margin:0 0 12px 0; color:#555;">In der App kannst du nach dem Titel suchen, um den Artikel zu finden.</p>
+                    <p style="color:#777; font-size: 12px; margin-top: 18px;">
+                        Du bekommst diese Mail, weil du Autor/Kategorie abonniert hast. Abos kannst du im Profil anpassen.
+                    </p>
+                </div>
+            `;
+            const text = `${article.title || 'Neuer Artikel'}\n\n${article.summary || ''}\n\nKategorie: ${category || '-'}\nAutor: ${author || '-'}\n${deepLink ? `\nWebsite: ${deepLink}\n` : ''}\nSuche in der App nach dem Titel, um den Artikel zu finden.\n\nDu bekommst diese Mail, weil du Autor/Kategorie abonniert hast. Abos im Profil anpassen.`;
+
+            // In kleinen Batches senden, um Timeouts zu vermeiden
+            const emails = Array.from(recipients);
+            for (let i = 0; i < emails.length; i++) {
+                try {
+                    // eslint-disable-next-line no-await-in-loop
+                    await queueEmail(emails[i], subject, html, text);
+                } catch (e) {
+                    console.error('E-Mail Queue fehlgeschlagen:', emails[i], e);
+                }
+            }
+        }
 
         function isFirebaseConfigured() {
             if (!myFirebaseConfig) return false;
@@ -112,7 +253,12 @@
                 showRealName: !!u.showRealName,
                 isBanned: !!u.isBanned,
                 isDeleted: !!u.isDeleted,
-                role: u.role || "user"
+                role: u.role || "user",
+                emailNotifyEnabled: typeof u.emailNotifyEnabled === 'boolean' ? u.emailNotifyEnabled : true,
+                subscriptions: {
+                    categories: (u.subscriptions && Array.isArray(u.subscriptions.categories)) ? u.subscriptions.categories : [],
+                    authors: (u.subscriptions && Array.isArray(u.subscriptions.authors)) ? u.subscriptions.authors : []
+                }
             }));
         }
 
@@ -155,6 +301,8 @@
             if (saveDebounceHandle) clearTimeout(saveDebounceHandle);
             saveDebounceHandle = setTimeout(() => {
                 persistRemoteState().catch(err => console.error('Firebase Save fehlgeschlagen:', err));
+                // Immer zusätzlich lokal sichern (Reload-sicher, auch wenn Firestore-Regeln es blocken).
+                persistLocalSupportState();
             }, 700);
         }
 
@@ -225,7 +373,10 @@
                     const data = snap.data() || {};
                     isApplyingRemoteState = true;
                     try {
-                        if (Array.isArray(data.registeredUsers)) registeredUsers = data.registeredUsers;
+                        if (Array.isArray(data.registeredUsers)) {
+                            registeredUsers = data.registeredUsers;
+                            ensureAllUsersSubscriptions();
+                        }
                     } finally {
                         isApplyingRemoteState = false;
                     }
@@ -268,7 +419,9 @@
                             showRealName: false,
                             isBanned: false,
                             isDeleted: false,
-                            role: "user"
+                            role: "user",
+                            emailNotifyEnabled: true,
+                            subscriptions: { categories: [], authors: [] }
                         });
                         window.saveState();
                     }
@@ -956,6 +1109,12 @@
             const isAdmin = hasAdminAccess();
             const activeComments = isAdmin ? article.comments : article.comments.filter(c => !c.isDeleted || c.username === currentUser);
             const authorData = getActiveAuthors().find(a => a.name === article.author);
+            const user = currentUser ? registeredUsers.find(u => u.username === currentUser) : null;
+            if (user) ensureUserSubscriptions(user);
+            const safeCategoryJs = (article.category || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeAuthorJs = (article.author || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const isCatSubscribed = !!(user && (user.subscriptions.categories || []).includes((article.category || '').trim()));
+            const isAuthorSubscribed = !!(user && (user.subscriptions.authors || []).includes((article.author || '').trim()));
             
             const displayImage = article.imageUrl || getFallbackImage(article.category);
 
@@ -964,7 +1123,15 @@
                 <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-8 hover:underline cursor-pointer">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
                 </button>
-                <span class="text-blue-700 font-bold text-sm uppercase font-sans tracking-wide cursor-pointer hover:underline" onclick="executeSearchCategory('${article.category}')">${article.category}</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-blue-700 font-bold text-sm uppercase font-sans tracking-wide cursor-pointer hover:underline" onclick="executeSearchCategory('${article.category}')">${article.category}</span>
+                    ${currentUser ? `
+                        <button onclick="toggleCategorySubscription('${safeCategoryJs}')" class="text-xs font-bold px-3 py-1 rounded-full border ${isCatSubscribed ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'} transition-colors cursor-pointer flex items-center gap-2" title="Kategorie abonnieren/abbestellen">
+                            <i data-lucide="${isCatSubscribed ? 'bell' : 'bell-off'}" class="w-4 h-4"></i>
+                            ${isCatSubscribed ? 'Abo aktiv' : 'Abonnieren'}
+                        </button>
+                    ` : ''}
+                </div>
                 <h1 class="text-3xl sm:text-4xl md:text-6xl font-bold leading-tight mt-4 mb-6">${article.title}</h1>
                 
                 <div class="flex flex-wrap items-center justify-between border-y border-gray-200 py-4 mb-8 font-sans text-sm text-gray-600">
@@ -976,6 +1143,12 @@
                             <span class="font-bold text-gray-900 block">${article.author}</span>
                             <span class="text-xs text-gray-500 time-ago-display" data-timestamp="${article.timestamp}">${getTimeAgo(article.timestamp)}</span>
                         </div>
+                        ${currentUser ? `
+                            <button onclick="event.stopPropagation(); toggleAuthorSubscription('${safeAuthorJs}')" class="ml-2 text-xs font-bold px-3 py-1 rounded-full border ${isAuthorSubscribed ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'} transition-colors cursor-pointer flex items-center gap-2" title="Autor abonnieren/abbestellen">
+                                <i data-lucide="${isAuthorSubscribed ? 'bell' : 'bell-off'}" class="w-4 h-4"></i>
+                                ${isAuthorSubscribed ? 'Abo aktiv' : 'Abonnieren'}
+                            </button>
+                        ` : ''}
                     </div>
                     <div class="flex items-center gap-6 mt-4 sm:mt-0">
                         <span class="flex items-center gap-2" title="Aufrufe">
@@ -1126,6 +1299,10 @@
             
             const user = registeredUsers.find(u => u.username === currentUser);
             if (!user) return '';
+            ensureUserSubscriptions(user);
+            const allAuthorNames = getAllAuthorNames();
+            const userSubCats = user.subscriptions.categories || [];
+            const userSubAuthors = user.subscriptions.authors || [];
 
             const likedArticles = articles.filter(a => a.likes.includes(currentUser));
             const viewedArticles = articles.filter(a => a.views.includes(currentUser));
@@ -1213,6 +1390,44 @@
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Über mich (Bio)</label>
                             <textarea id="profileBio" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" placeholder="Schreibe etwas über dich, deine Interessen oder warum du gerne Zeitung liest...">${user.bio || ''}</textarea>
+                        </div>
+
+                        <div class="bg-gray-50 p-5 rounded border border-gray-200">
+                            <h4 class="text-lg font-black uppercase mb-3 flex items-center gap-2"><i data-lucide="bell" class="w-5 h-5 text-blue-700"></i> Abos & E-Mail</h4>
+                            <label class="flex items-center gap-3 text-sm font-bold text-gray-700 cursor-pointer select-none">
+                                <input type="checkbox" id="profileEmailNotifyEnabled" ${user.emailNotifyEnabled ? 'checked' : ''} class="w-5 h-5 cursor-pointer text-blue-600 rounded" />
+                                E-Mail Benachrichtigungen aktivieren
+                            </label>
+                            <p class="text-xs text-gray-600 mt-2">E-Mail: <span class="font-mono">${(user.email || '').trim() || '—'}</span></p>
+                            ${!isFirebaseConnected ? `<p class="text-xs text-orange-700 mt-2">Hinweis: E-Mail-Versand funktioniert nur im Online-Modus (Firebase) und benötigt die Firebase Extension "Trigger Email".</p>` : ''}
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                                <div>
+                                    <p class="text-sm font-black uppercase text-gray-700 mb-2">Kategorien</p>
+                                    <div class="flex flex-col gap-2 max-h-56 overflow-auto pr-2">
+                                        ${(categories || []).map(cat => {
+                                            const c = (cat || '').trim();
+                                            if (!c) return '';
+                                            const checked = userSubCats.includes(c) ? 'checked' : '';
+                                            const safe = c.replace(/\"/g, '&quot;');
+                                            return `<label class="flex items-center gap-3 text-sm text-gray-700 cursor-pointer select-none"><input type="checkbox" class="w-4 h-4 cursor-pointer" data-subcat="${safe}" ${checked} /> ${c}</label>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-black uppercase text-gray-700 mb-2">Autoren</p>
+                                    <div class="flex flex-col gap-2 max-h-56 overflow-auto pr-2">
+                                        ${allAuthorNames.map(aName => {
+                                            const a = (aName || '').trim();
+                                            if (!a) return '';
+                                            const checked = userSubAuthors.includes(a) ? 'checked' : '';
+                                            const safe = a.replace(/\"/g, '&quot;');
+                                            return `<label class="flex items-center gap-3 text-sm text-gray-700 cursor-pointer select-none"><input type="checkbox" class="w-4 h-4 cursor-pointer" data-subauthor="${safe}" ${checked} /> ${a}</label>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-3">Tipp: Du kannst auch direkt im Artikel bei Autor/Kategorie ein Abo umschalten.</p>
                         </div>
                         
                         <button onclick="saveProfile()" class="bg-blue-900 text-white font-bold py-3 px-4 rounded hover:bg-blue-800 transition-colors mt-2 cursor-pointer flex justify-center items-center gap-2 md:w-1/2">
@@ -2821,7 +3036,9 @@
                             showRealName: false,
                             isBanned: false,
                             isDeleted: false,
-                            role: "user"
+                            role: "user",
+                            emailNotifyEnabled: true,
+                            subscriptions: { categories: [], authors: [] }
                         });
 
                         window.saveState();
@@ -2865,7 +3082,9 @@
                 showRealName: false,
                 isBanned: false,
                 isDeleted: false,
-                role: "user" 
+                role: "user",
+                emailNotifyEnabled: true,
+                subscriptions: { categories: [], authors: [] }
             });
 
             window.saveState();
@@ -3031,6 +3250,7 @@
                         autoDeleteDate: autoDeleteDate
                     };
                     articles.unshift(newArticle);
+                    notifySubscribersOfArticle(newArticle).catch(err => console.error('Subscriber-Mail fehlgeschlagen:', err));
                     showModal('Erfolgreich', 'Der neue Artikel wurde veröffentlicht.');
                 }
                 window.saveState();
@@ -3060,9 +3280,19 @@
             const profilePicUrl = document.getElementById('profilePicUrl').value;
             const profilePicFile = document.getElementById('profilePicFile').files[0];
             const showRealName = document.getElementById('profileShowRealName').checked;
+            const emailNotifyEnabledEl = document.getElementById('profileEmailNotifyEnabled');
+            const emailNotifyEnabled = emailNotifyEnabledEl ? !!emailNotifyEnabledEl.checked : true;
+
+            const selectedCats = Array.from(document.querySelectorAll('input[data-subcat]:checked'))
+                .map(el => (el.getAttribute('data-subcat') || '').trim())
+                .filter(Boolean);
+            const selectedAuthors = Array.from(document.querySelectorAll('input[data-subauthor]:checked'))
+                .map(el => (el.getAttribute('data-subauthor') || '').trim())
+                .filter(Boolean);
             
             const user = registeredUsers.find(u => u.username === currentUser);
             if (user) {
+                ensureUserSubscriptions(user);
                 if (isFirebaseConnected) {
                     // Im Online-Modus verwaltet Firebase Auth Login/Passwort. Hier speichern wir nur Profilfelder.
                     if (newPassword !== '' || confirmPassword !== '') {
@@ -3143,6 +3373,9 @@
                 }
                 }
 
+                user.emailNotifyEnabled = emailNotifyEnabled;
+                user.subscriptions.categories = selectedCats;
+                user.subscriptions.authors = selectedAuthors;
                 user.bio = bioText;
                 user.showRealName = showRealName;
 
@@ -3174,6 +3407,34 @@
                 window.saveState();
                 renderApp();
             }
+        }
+
+        window.toggleCategorySubscription = function(category) {
+            if (!currentUser) { showUserLogin(); return; }
+            const user = registeredUsers.find(u => u.username === currentUser);
+            if (!user) return;
+            ensureUserSubscriptions(user);
+            const cat = (category || '').trim();
+            if (!cat) return;
+            const idx = user.subscriptions.categories.indexOf(cat);
+            if (idx > -1) user.subscriptions.categories.splice(idx, 1);
+            else user.subscriptions.categories.push(cat);
+            window.saveState();
+            renderApp();
+        }
+
+        window.toggleAuthorSubscription = function(author) {
+            if (!currentUser) { showUserLogin(); return; }
+            const user = registeredUsers.find(u => u.username === currentUser);
+            if (!user) return;
+            ensureUserSubscriptions(user);
+            const a = (author || '').trim();
+            if (!a) return;
+            const idx = user.subscriptions.authors.indexOf(a);
+            if (idx > -1) user.subscriptions.authors.splice(idx, 1);
+            else user.subscriptions.authors.push(a);
+            window.saveState();
+            renderApp();
         }
 
         window.showImageModal = function(url) {
