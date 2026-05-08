@@ -475,12 +475,64 @@
             if (!isFirebaseConnected || !firebaseStorage) throw new Error('Firebase Storage nicht verfügbar');
             if (!file) throw new Error('Keine Datei');
             const safeName = (username || 'user').toString().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-            const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase() : 'png';
+            const isWebp = file.type === 'image/webp';
+            const ext = isWebp ? 'webp' : 'jpg';
             const path = `profile_pics/${safeName}_${Date.now()}.${ext}`;
             const ref = firebaseStorage.ref().child(path);
-            const snap = await ref.put(file, { contentType: file.type || undefined });
+            const snap = await ref.put(file, { contentType: file.type || 'image/jpeg' });
             const url = await snap.ref.getDownloadURL();
             return url;
+        }
+
+        async function resizeImageFile(file, opts) {
+            const options = opts || {};
+            const maxSize = typeof options.maxSize === 'number' ? options.maxSize : 512;
+            const quality = typeof options.quality === 'number' ? options.quality : 0.82;
+            const preferWebp = options.preferWebp !== false;
+
+            if (!file || !file.type || !file.type.startsWith('image/')) return { blob: file, dataUrl: null, mimeType: file ? file.type : 'application/octet-stream' };
+
+            const img = await new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const image = new Image();
+                image.onload = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(image);
+                };
+                image.onerror = (e) => {
+                    URL.revokeObjectURL(url);
+                    reject(e);
+                };
+                image.src = url;
+            });
+
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            if (!w || !h) return { blob: file, dataUrl: null, mimeType: file.type };
+
+            const scale = Math.min(1, maxSize / Math.max(w, h));
+            const outW = Math.max(1, Math.round(w * scale));
+            const outH = Math.max(1, Math.round(h * scale));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = outW;
+            canvas.height = outH;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, outW, outH);
+
+            const canWebp = preferWebp && canvas.toDataURL('image/webp').startsWith('data:image/webp');
+            const mimeType = canWebp ? 'image/webp' : 'image/jpeg';
+
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, mimeType, quality));
+            const finalBlob = blob || file;
+            let dataUrl = null;
+            try {
+                dataUrl = canvas.toDataURL(mimeType, quality);
+            } catch (_) {}
+
+            return { blob: finalBlob, dataUrl, mimeType };
         }
 
         // --- 3D LOGO INTEGRATION (THREE.JS) ---
@@ -3434,7 +3486,9 @@
                         (async () => {
                             try {
                                 showModal('Upload läuft…', 'Dein Profilbild wird hochgeladen.');
-                                const url = await uploadProfilePicToStorage(profilePicFile, currentUser);
+                                const resized = await resizeImageFile(profilePicFile, { maxSize: 512, quality: 0.82, preferWebp: true });
+                                const uploadFile = new File([resized.blob], 'profile.' + (resized.mimeType === 'image/webp' ? 'webp' : 'jpg'), { type: resized.mimeType });
+                                const url = await uploadProfilePicToStorage(uploadFile, currentUser);
                                 user.profilePicUrl = url;
                                 applySave();
                             } catch (e) {
@@ -3443,12 +3497,23 @@
                             }
                         })();
                     } else {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            user.profilePicUrl = e.target.result;
-                            applySave();
-                        };
-                        reader.readAsDataURL(profilePicFile);
+                        (async () => {
+                            try {
+                                const resized = await resizeImageFile(profilePicFile, { maxSize: 512, quality: 0.82, preferWebp: false });
+                                if (resized.dataUrl) user.profilePicUrl = resized.dataUrl;
+                                else {
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        user.profilePicUrl = e.target.result;
+                                    };
+                                    reader.readAsDataURL(profilePicFile);
+                                }
+                                applySave();
+                            } catch (e) {
+                                console.error('Profilbild Resize fehlgeschlagen:', e);
+                                showModal('Fehler', 'Profilbild konnte nicht verarbeitet werden.');
+                            }
+                        })();
                     }
                 } else {
                     if (profilePicUrl.trim() !== '') {
