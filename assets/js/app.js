@@ -20,11 +20,28 @@
 
         // --- DATEN ---
         let initialArticles = [
-            
+            {
+                id: 1, category: "Wirtschaft", title: "KI verändert Arbeitswelt", summary: "Eine Studie zeigt: KI wird bald viele Bürojobs transformieren.", content: "Künstliche Intelligenz wird in den nächsten Jahren viele Büroaufgaben automatisieren. Dadurch entstehen aber auch neue, kreative Berufe. Die Politik ist gefordert, das Bildungssystem entsprechend anzupassen.", author: "Sarah Müller", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), imageUrl: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80", views: ['user_x'], likes: [], comments: [], isEilmeldung: true, sources: ["https://example.com/ki-studie", "https://example.com/zukunft-der-arbeit"]
+            },
+            {
+                id: 2, category: "Politik", title: "Einigung beim Klimagipfel", summary: "Industriestaaten beschließen strengere Klimaziele.", content: "In Genf haben sich die Staaten auf neue CO2-Emissionsziele geeinigt. Bis 2030 sollen die Emissionen deutlich sinken. Ein Ausgleichsfonds half beim Durchbruch.", author: "Johannes Weber", timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), imageUrl: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", views: [], likes: [], comments: [
+                    { id: 1001, username: "MaxMuster", text: "Endlich ein Schritt in die richtige Richtung!", timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), likes: [], isDeleted: false, deletedBy: null, reportedBy: [], moderationStatus: 'approved' }
+                ]
+            },
+            {
+                id: 3, category: "Gesellschaft", title: "Neue Lehrpläne an Schulen", summary: "Digitale Medien und Gesundheit werden neue Hauptfächer.", content: "Ab dem nächsten Schuljahr gibt es neue Fächer: Digitale Kompetenz und Mentale Gesundheit werden unterrichtet, um Schüler besser auf die Zukunft vorzubereiten.", author: "Elena Rost", timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), imageUrl: "", views: [], likes: [], comments: []
+            },
+            {
+                id: 4, category: "Sport", title: "Außenseiter gewinnt Finale", summary: "Siegessensation durch Tor in der Nachspielzeit.", content: "Der klare Außenseiter hat das Finale für sich entschieden. Ein Treffer in der letzten Minute sicherte dem Team überraschend den begehrten Meistertitel.", author: "Thomas Klein", timestamp: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(), imageUrl: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", views: [], likes: [], comments: []
+            }
         ];
 
         let authors = [
-            { id: 1, name: "Redaktion", bio: "Das gemeinsame Redaktionsteam der Winterthur Times.", imageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=200&fit=crop" }
+            { id: 1, name: "Sarah Müller", bio: "Leitende Redakteurin für Technologie und Wirtschaft.", imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&fit=crop" },
+            { id: 2, name: "Johannes Weber", bio: "Ressortleiter Politik mit Fokus auf internationale Beziehungen.", imageUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&fit=crop" },
+            { id: 3, name: "Elena Rost", bio: "Expertin für gesellschaftliche Themen, Bildung und soziale Bewegungen.", imageUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&fit=crop" },
+            { id: 4, name: "Thomas Klein", bio: "Sportjournalist aus Leidenschaft.", imageUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&fit=crop" },
+            { id: 5, name: "Redaktion", bio: "Das gemeinsame Redaktionsteam der Winterthur Times.", imageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=200&fit=crop" }
         ];
 
         let communityImages = [
@@ -53,14 +70,16 @@
         let pendingChatOpen = false; 
         let pendingView = null;
         
-        let categories = ["Politik", "Wirtschaft", "Gesellschaft", "Kultur", "Sport", "Lokales", "Wissenschaft", "Unterhaltung"];
+        let categories = ["Politik", "Wirtschaft", "Gesellschaft", "Kultur", "Sport", "Lokales", "Wissenschaft", "Unterhaltung", "Panorama"];
         
         let currentUser = null;
         let sessionId = Math.random().toString(36).substring(2, 10);
         let supportUser = 'Gast-' + sessionId; 
         
         let registeredUsers = [
-           
+            { username: "MaxMuster", password: "123", firstName: "Max", lastName: "Mustermann", email: "max@beispiel.de", bio: "Ich lese gerne Nachrichten.", profilePicUrl: "", showRealName: true, isBanned: false, isDeleted: false, role: "user" },
+            { username: "AnnaAdmin", password: "123", firstName: "Anna", lastName: "Admin", email: "anna.admin@beispiel.de", bio: "Systemadministratorin der Zeitung.", profilePicUrl: "", showRealName: true, isBanned: false, isDeleted: false, role: "admin" },
+            { username: "AntonAutor", password: "123", firstName: "Anton", lastName: "Autor", email: "anton.autor@beispiel.de", bio: "Redakteur und leidenschaftlicher Schreiber.", profilePicUrl: "", showRealName: true, isBanned: false, isDeleted: false, role: "author" }
         ]; 
         
         let isSupportChatOpen = false;
@@ -70,6 +89,8 @@
         let isFirebaseConnected = false;
 
         // --- GEMEINSAME DATEN (Firebase) ---
+        // Hinweis: GitHub Pages ist statisch – man kann keine "User/Chat/Artikel-Dateien" im Repo zur Laufzeit
+        // überschreiben. Für gemeinsame Daten nutzen wir daher Firestore-Dokumente, quasi wie separate Dateien:
         // - data/users    (Benutzer-Profile/Rollen)
         // - data/chats    (Support-Chats)
         // - data/articles (Artikel + Autoren/Kategorien + Community/Feedback)
@@ -2909,7 +2930,7 @@
         window.handleLogin = function(event) {
             event.preventDefault();
             const pwInput = document.getElementById('adminPassword').value;
-            if (pwInput === 'WinterthurTimes') {
+            if (pwInput === 'LOL') {
                 isSuperAdmin = true;
                 adminTab = 'articles';
                 setView('admin-dashboard');
