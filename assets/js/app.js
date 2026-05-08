@@ -73,9 +73,6 @@
         let supportUser = 'Gast-' + sessionId; 
         
         let registeredUsers = [
-            { username: "MaxMuster", password: "123", firstName: "Max", lastName: "Mustermann", email: "max@beispiel.de", bio: "Ich lese gerne Nachrichten.", profilePicUrl: "", showRealName: true, isBanned: false, isDeleted: false, role: "user" },
-            { username: "AnnaAdmin", password: "123", firstName: "Anna", lastName: "Admin", email: "anna.admin@beispiel.de", bio: "Systemadministratorin der Zeitung.", profilePicUrl: "", showRealName: true, isBanned: false, isDeleted: false, role: "admin" },
-            { username: "AntonAutor", password: "123", firstName: "Anton", lastName: "Autor", email: "anton.autor@beispiel.de", bio: "Redakteur und leidenschaftlicher Schreiber.", profilePicUrl: "", showRealName: true, isBanned: false, isDeleted: false, role: "author" }
         ]; 
         
         let isSupportChatOpen = false;
@@ -369,8 +366,7 @@
                 "Sport": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
                 "Lokales": "https://images.unsplash.com/photo-1513622470522-26c31168cb21?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
                 "Wissenschaft": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-                "Unterhaltung": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-                "Panorama": "https://images.unsplash.com/photo-1506744626753-eda818466668?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                "Unterhaltung": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
             };
             return fallbacks[category] || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"; 
         }
