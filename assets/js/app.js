@@ -200,7 +200,10 @@
                 }
             });
 
-            if (recipients.size === 0) return;
+            if (recipients.size === 0) {
+                console.log('Abo-Mail: keine Empfänger (keine passenden Abos oder keine E-Mails gesetzt).');
+                return;
+            }
 
             const safeTitle = (article.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const safeSummary = (article.summary || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -222,15 +225,28 @@
             `;
             const text = `${article.title || 'Neuer Artikel'}\n\n${article.summary || ''}\n\nKategorie: ${category || '-'}\nAutor: ${author || '-'}\n${deepLink ? `\nWebsite: ${deepLink}\n` : ''}\nSuche in der App nach dem Titel, um den Artikel zu finden.\n\nDu bekommst diese Mail, weil du Autor/Kategorie abonniert hast. Abos im Profil anpassen.`;
 
-            // In kleinen Batches senden, um Timeouts zu vermeiden
+            // In kleinen Batches senden, um Timeouts/Quota-Probleme zu vermeiden
             const emails = Array.from(recipients);
+            let okCount = 0;
+            let failCount = 0;
             for (let i = 0; i < emails.length; i++) {
                 try {
                     // eslint-disable-next-line no-await-in-loop
-                    await queueEmail(emails[i], subject, html, text);
+                    const ok = await queueEmail(emails[i], subject, html, text);
+                    if (ok) okCount++;
+                    else failCount++;
                 } catch (e) {
                     console.error('E-Mail Queue fehlgeschlagen:', emails[i], e);
+                    failCount++;
                 }
+            }
+
+            console.log(`Abo-Mail: queued=${okCount} failed=${failCount} (prüfe Firestore Collection 'mail' + Trigger Email Extension).`);
+            if (failCount > 0 && okCount === 0 && (hasAdminAccess() || hasAuthorAccess())) {
+                showModal(
+                    'E-Mail Hinweis',
+                    "Es konnten keine E-Mails gequeued werden. Prüfe, ob die Firebase Extension 'Trigger Email' installiert ist und ob Firestore-Regeln das Schreiben in die Collection 'mail' erlauben."
+                );
             }
         }
 
