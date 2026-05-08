@@ -37,11 +37,7 @@
         ];
 
         let authors = [
-            { id: 1, name: "Sarah Müller", bio: "Leitende Redakteurin für Technologie und Wirtschaft.", imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&fit=crop" },
-            { id: 2, name: "Johannes Weber", bio: "Ressortleiter Politik mit Fokus auf internationale Beziehungen.", imageUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&fit=crop" },
-            { id: 3, name: "Elena Rost", bio: "Expertin für gesellschaftliche Themen, Bildung und soziale Bewegungen.", imageUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&fit=crop" },
-            { id: 4, name: "Thomas Klein", bio: "Sportjournalist aus Leidenschaft.", imageUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&fit=crop" },
-            { id: 5, name: "Redaktion", bio: "Das gemeinsame Redaktionsteam der Winterthur Times.", imageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=200&fit=crop" }
+            { id: 1, name: "Redaktion", bio: "Das gemeinsame Redaktionsteam der Winterthur Times.", imageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=200&fit=crop" }
         ];
 
         let communityImages = [
