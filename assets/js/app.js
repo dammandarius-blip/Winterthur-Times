@@ -298,6 +298,8 @@
         function scheduleRemoteSave() {
             if (!isFirebaseConnected) return;
             if (isApplyingRemoteState) return;
+            // Immer sofort lokal sichern (Reload-sicher), Remote kommt (debounced) danach.
+            persistLocalSupportState();
             if (saveDebounceHandle) clearTimeout(saveDebounceHandle);
             saveDebounceHandle = setTimeout(() => {
                 persistRemoteState().catch(err => console.error('Firebase Save fehlgeschlagen:', err));
@@ -365,6 +367,7 @@
                     } finally {
                         isApplyingRemoteState = false;
                     }
+                    persistLocalSupportState();
                     renderApp();
                 });
 
@@ -676,6 +679,7 @@
             }
             chat.aiEnabled = chat.aiEnabled === false ? true : false;
             window.saveState();
+            persistLocalSupportState();
             renderApp();
         };
 
@@ -1127,7 +1131,7 @@
                     <span class="text-blue-700 font-bold text-sm uppercase font-sans tracking-wide cursor-pointer hover:underline" onclick="executeSearchCategory('${article.category}')">${article.category}</span>
                     ${currentUser ? `
                         <button onclick="toggleCategorySubscription('${safeCategoryJs}')" class="text-xs font-bold px-3 py-1 rounded-full border ${isCatSubscribed ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'} transition-colors cursor-pointer flex items-center gap-2" title="Kategorie abonnieren/abbestellen">
-                            <i data-lucide="${isCatSubscribed ? 'bell' : 'bell-off'}" class="w-4 h-4"></i>
+                            <i data-lucide="bell" class="w-4 h-4"></i>
                             ${isCatSubscribed ? 'Abo aktiv' : 'Abonnieren'}
                         </button>
                     ` : ''}
@@ -1145,7 +1149,7 @@
                         </div>
                         ${currentUser ? `
                             <button onclick="event.stopPropagation(); toggleAuthorSubscription('${safeAuthorJs}')" class="ml-2 text-xs font-bold px-3 py-1 rounded-full border ${isAuthorSubscribed ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'} transition-colors cursor-pointer flex items-center gap-2" title="Autor abonnieren/abbestellen">
-                                <i data-lucide="${isAuthorSubscribed ? 'bell' : 'bell-off'}" class="w-4 h-4"></i>
+                                <i data-lucide="bell" class="w-4 h-4"></i>
                                 ${isAuthorSubscribed ? 'Abo aktiv' : 'Abonnieren'}
                             </button>
                         ` : ''}
@@ -2771,6 +2775,7 @@
             
             input.value = '';
             window.saveState();
+            persistLocalSupportState();
             renderApp();
             
             const scrollDown = () => {
@@ -2823,6 +2828,7 @@
                         chat.messages[msgIndex].isThinking = false;
                         chat.messages[msgIndex].text = data.reply || "Es ist ein Fehler aufgetreten.";
                         window.saveState();
+                        persistLocalSupportState();
                         renderApp();
                         scrollDown();
                     }
@@ -2831,6 +2837,7 @@
                         chat.messages[msgIndex].isThinking = false;
                         chat.messages[msgIndex].text = "Verbindungsfehler zum KI-Support-Dienst.";
                         window.saveState();
+                        persistLocalSupportState();
                         renderApp();
                         scrollDown();
                     }
@@ -2850,6 +2857,7 @@
                     timestamp: new Date().toISOString()
                 });
                 window.saveState();
+                persistLocalSupportState();
             }
             renderApp();
             
