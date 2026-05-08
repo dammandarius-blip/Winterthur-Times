@@ -21,6 +21,19 @@
     <!-- Hier wird die gesamte App hineingeladen -->
     <div id="app"></div>
 
+    <!-- Worker-Chat UI (benötigte IDs) -->
+    <div class="max-w-3xl mx-auto px-4 pb-10 font-sans">
+        <div class="bg-white border border-gray-200 shadow-sm rounded-sm p-4">
+            <h3 class="text-lg font-black uppercase mb-3">Chat</h3>
+            <div id="chat" class="h-64 overflow-y-auto bg-gray-50 border border-gray-200 rounded p-3 mb-3"></div>
+            <div class="flex gap-2">
+                <input id="chatInput" type="text" class="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-600" placeholder="Nachricht..." />
+                <button id="sendBtn" class="bg-blue-900 text-white font-bold px-4 py-2 rounded hover:bg-blue-800 transition-colors">Senden</button>
+            </div>
+        </div>
+    </div>
+
         <script src="./assets/js/app.js"></script>
+        <script src="script.js"></script>
 </body>
 </html>
