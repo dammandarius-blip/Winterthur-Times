@@ -539,7 +539,7 @@
 
             document.addEventListener('mousemove', (event) => {
                 const windowHalfY = window.innerHeight / 2;
-                targetRotationX = (event.clientY - windowHalfY) * 0.0005;
+                targetRotationX = (event.clientY - windowHalfY) * 0.001;
             });
 
             animateLogo();
