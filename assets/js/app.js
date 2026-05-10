@@ -2175,7 +2175,62 @@
 
         // --- DEIN NEUES SUPPORT CHAT WIDGET ---
         function renderSupportChatWidget() {
-            return ''; // Das Chat-Widget wurde komplett entfernt
+            const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
+            let chat = supportChats.find(c => c.userId === activeChatUser);
+            
+            let messagesHtml = '<div class="text-center text-gray-400 mt-10 text-xs">Schreibe eine Nachricht, um den Chat zu starten.</div>';
+            
+            if (chat && chat.messages && chat.messages.length > 0) {
+                messagesHtml = chat.messages.map(m => {
+                    const isUser = m.sender === 'user';
+                    return `
+                    <div class="flex ${isUser ? 'justify-end' : 'justify-start'} mb-3">
+                        <div class="${isUser ? 'bg-blue-100 text-blue-900 rounded-br-none' : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none'} p-3 rounded-lg max-w-[85%] shadow-sm">
+                            <p class="text-sm">${m.text}</p>
+                            ${m.isThinking ? '<span class="flex items-center gap-1 mt-1 text-[10px] text-gray-400"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> KI denkt nach...</span>' : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            return `
+            <!-- Runder Chat-Button unten rechts -->
+            <button id="chatToggleBtn" onclick="toggleSupportChat()" class="fixed bottom-6 right-6 bg-blue-900 text-white p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-all z-[100] flex items-center justify-center cursor-pointer">
+                <i data-lucide="${isSupportChatOpen ? 'x' : 'message-circle'}" class="w-6 h-6"></i>
+            </button>
+
+            ${isSupportChatOpen ? `
+            <!-- Das eigentliche Chat-Fenster -->
+            <div id="active-support-widget" class="fixed bottom-24 right-6 w-80 h-[28rem] bg-white border border-gray-200 shadow-2xl rounded-xl z-[100] flex flex-col overflow-hidden font-sans animate-fade-in">
+                <!-- Header -->
+                <div class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-md">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="bot" class="w-5 h-5"></i>
+                        <h3 class="font-bold tracking-wide">Support AI</h3>
+                    </div>
+                    <button onclick="toggleSupportChat()" class="text-white hover:text-gray-300 transition-colors cursor-pointer">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <!-- Chat-Verlauf -->
+                <div id="support-messages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-gray-50 text-sm">
+                    ${messagesHtml}
+                </div>
+                
+                <!-- Eingabefeld -->
+                <div class="p-3 bg-white border-t border-gray-200 flex gap-2 items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+                    <input id="support-input" type="text" 
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900 text-sm" 
+                        placeholder="Schreibe eine Nachricht..." 
+                        onkeypress="if(event.key === 'Enter') sendSupportMessage()" />
+                    
+                    <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2 rounded-md hover:bg-blue-800 transition-colors cursor-pointer">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            ` : ''}`;
         }
 
         function renderFooter() {
@@ -3794,23 +3849,5 @@
         }
 
         // --- SICHERHEITS-CLEANUP ---
-        // Versteckt das alte Chat-Fenster zwingend (falls es noch im Cache oder in der HTML-Datei hängt)
-        const cleanupStyle = document.createElement('style');
-        cleanupStyle.innerHTML = `
-            #support-chat, 
-            #support-widget, 
-            #support-chat-widget,
-            .fixed.bottom-0.right-0,
-            .fixed.bottom-4.right-4 {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
-            }
-        `;
-        document.head.appendChild(cleanupStyle);
-
-        init3DLogo();
-        fetchWeather();
-        initFirebase();
-        renderApp();
+        // Versteckt das alte Chat-Fenster zwingend (falls es noch in der HTML-Datei hängt)
+        const cleanup
