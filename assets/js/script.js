@@ -20,12 +20,25 @@ style.innerHTML = `
         0%, 80%, 100% { transform: scale(0); }
         40% { transform: scale(1); }
     }
+    /* Verhindere doppelte Buttons aus alten Code-Resten der Haupt-App */
+    #app > #chatToggleBtn, #app #active-support-widget { display: none !important; }
 `;
 document.head.appendChild(style);
 
 // 1. UI dynamisch in die Seite einfügen
 function initFloatingSupportChat() {
+    // Alte Instanzen entfernen, falls das Skript (z.B. durch Neuladen) mehrfach ausgeführt wird
+    const existingWrapper = document.getElementById('support-chat-wrapper');
+    if (existingWrapper) existingWrapper.remove();
+    
+    // Alte, verwaiste Buttons sicherheitshalber aus dem Body löschen
+    const oldBtn = document.getElementById('chatToggleBtn');
+    if (oldBtn && oldBtn.parentElement === document.body) oldBtn.remove();
+    const oldWidget = document.getElementById('support-chat-widget');
+    if (oldWidget && oldWidget.parentElement === document.body) oldWidget.remove();
+
     const container = document.createElement('div');
+    container.id = 'support-chat-wrapper';
     container.innerHTML = `
         <!-- Runder Chat-Button unten rechts -->
         <button id="chatToggleBtn" onclick="toggleSupportChat()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-600 text-white p-3 sm:p-4 rounded-full shadow-2xl hover:bg-blue-700 hover:scale-105 transition-all duration-300 z-[100] flex items-center justify-center">
@@ -33,7 +46,8 @@ function initFloatingSupportChat() {
         </button>
 
         <!-- Das eigentliche Chat-Fenster (Mobile: Vollbild, Desktop: Schwebend) -->
-        <div id="support-chat-widget" class="fixed bottom-0 right-0 w-full h-[100dvh] sm:bottom-24 sm:right-6 sm:w-[380px] sm:h-[36rem] bg-white sm:border sm:border-gray-200 shadow-2xl sm:rounded-2xl z-[100] hidden flex-col overflow-hidden font-sans transition-all duration-300 transform origin-bottom-right">
+        <!-- HIER ANGEPASST: sm:w-[420px] (breiter) und sm:h-[30rem] (weniger hoch) -->
+        <div id="support-chat-widget" class="fixed bottom-0 right-0 w-full h-[100dvh] sm:bottom-24 sm:right-6 sm:w-[420px] sm:h-[30rem] bg-white sm:border sm:border-gray-200 shadow-2xl sm:rounded-2xl z-[100] hidden flex-col overflow-hidden font-sans transition-all duration-300 transform origin-bottom-right">
             
             <!-- Header -->
             <div class="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-3 sm:p-4 flex justify-between items-center shadow-md z-10">
