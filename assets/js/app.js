@@ -1121,12 +1121,6 @@
                         `).join('')}
                     </ul>
                 </div>
-                <div class="bg-blue-50 p-6 border border-blue-100 mt-4 text-center rounded-sm">
-                    <i data-lucide="message-square-plus" class="w-8 h-8 text-blue-600 mx-auto mb-3"></i>
-                    <h3 class="text-xl font-bold mb-2">Sag uns deine Meinung</h3>
-                    <p class="text-sm text-gray-600 mb-4 font-sans">Fehlt dir etwas? Hast du eine Idee? Schreib uns direkt.</p>
-                    <button onclick="openFeedbackChat()" class="bg-blue-900 text-white px-4 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer">Website bewerten</button>
-                </div>
             </aside></div>`;
 
             return html;
@@ -3798,6 +3792,23 @@
             isSearchOpen = false; 
             setView('search');
         }
+
+        // --- SICHERHEITS-CLEANUP ---
+        // Versteckt das alte Chat-Fenster zwingend (falls es noch im Cache oder in der HTML-Datei hängt)
+        const cleanupStyle = document.createElement('style');
+        cleanupStyle.innerHTML = `
+            #support-chat, 
+            #support-widget, 
+            #support-chat-widget,
+            .fixed.bottom-0.right-0,
+            .fixed.bottom-4.right-4 {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+        `;
+        document.head.appendChild(cleanupStyle);
 
         init3DLogo();
         fetchWeather();
