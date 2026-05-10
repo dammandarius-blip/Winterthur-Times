@@ -82,11 +82,6 @@
         let isFirebaseConnected = false;
 
         // --- GEMEINSAME DATEN (Firebase) ---
-        // Hinweis: GitHub Pages ist statisch – man kann keine "User/Chat/Artikel-Dateien" im Repo zur Laufzeit
-        // überschreiben. Für gemeinsame Daten nutzen wir daher Firestore-Dokumente, quasi wie separate Dateien:
-        // - data/users    (Benutzer-Profile/Rollen)
-        // - data/chats    (Support-Chats)
-        // - data/articles (Artikel + Autoren/Kategorien + Community/Feedback)
         let firebaseApp = null;
         let firebaseDb = null;
         let firebaseAuth = null;
@@ -122,7 +117,6 @@
         async function queueEmail(toEmail, subject, html, text) {
             if (!isFirebaseConnected || !firebaseDb) return false;
             if (!toEmail || !toEmail.includes('@')) return false;
-            // Erwartet Firebase Extension "Trigger Email" (Collection: mail)
             console.log('Abo-Mail: queueEmail -> mail.add', { toEmail, subject });
             await firebaseDb.collection('mail').add({
                 to: [toEmail],
@@ -185,13 +179,11 @@
             `;
             const text = `${article.title || 'Neuer Artikel'}\n\n${article.summary || ''}\n\nKategorie: ${category || '-'}\nAutor: ${author || '-'}\n${deepLink ? `\nWebsite: ${deepLink}\n` : ''}\nSuche in der App nach dem Titel, um den Artikel zu finden.\n\nDu bekommst diese Mail, weil du Autor/Kategorie abonniert hast. Abos im Profil anpassen.`;
 
-            // In kleinen Batches senden, um Timeouts/Quota-Probleme zu vermeiden
             const emails = Array.from(recipients);
             let okCount = 0;
             let failCount = 0;
             for (let i = 0; i < emails.length; i++) {
                 try {
-                    // eslint-disable-next-line no-await-in-loop
                     const ok = await queueEmail(emails[i], subject, html, text);
                     if (ok) okCount++;
                     else failCount++;
@@ -218,7 +210,6 @@
         }
 
         function sanitizeUsersForRemote(users) {
-            // Passwörter werden nie remote gespeichert (Firebase Auth übernimmt das).
             return (users || []).map(u => ({
                 username: u.username,
                 firstName: u.firstName || "",
@@ -298,7 +289,6 @@
                 }
                 isFirebaseConnected = true;
 
-                // saveState global auf "remote speichern" umbiegen (debounced)
                 window.saveState = scheduleRemoteSave;
 
                 const dataCol = firebaseDb.collection('data');
@@ -306,7 +296,6 @@
                 const chatsDoc = dataCol.doc('chats');
                 const usersDoc = dataCol.doc('users');
 
-                // Erstes Setup: wenn noch nichts in Firestore ist, initiale Daten hochladen.
                 await seedDocIfMissing(articlesDoc, {
                     articles: articles,
                     authors: authors,
@@ -318,7 +307,6 @@
                 await seedDocIfMissing(chatsDoc, { supportChats: supportChats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                 await seedDocIfMissing(usersDoc, { registeredUsers: sanitizeUsersForRemote(registeredUsers), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
-                // Realtime Sync: sobald jemand anders etwas ändert, aktualisieren wir die lokalen Arrays.
                 articlesDoc.onSnapshot({ includeMetadataChanges: true }, (snap) => {
                     if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
                     const data = snap.data() || {};
@@ -362,7 +350,6 @@
                     renderApp();
                 });
 
-                // Auth Sync: wenn der User über Firebase ein-/ausloggt
                 firebaseAuth.onAuthStateChanged((user) => {
                     if (!user) {
                         currentUser = null;
@@ -375,7 +362,6 @@
                     currentUser = name;
                     supportUser = name;
 
-                    // Blockieren, falls gesperrt/gelöscht
                     const profile = registeredUsers.find(u => u.username === name) || null;
                     if (profile && (profile.isBanned || profile.isDeleted)) {
                         const msg = profile.isDeleted
@@ -386,7 +372,6 @@
                         return;
                     }
 
-                    // Falls User noch kein Profil-Objekt hat, legen wir eins an (minimale Daten).
                     if (!profile) {
                         registeredUsers.push({
                             username: name,
@@ -699,7 +684,6 @@
         // --- KI-HELFER ---
 
         window.checkContentWithAi = async function(text, type, id, parentId) {
-            // Vereinfachte Moderationslogik: Inhalte werden direkt freigegeben.
             finalizeModeration(type, id, parentId, 'approved');
         };
 
@@ -710,7 +694,6 @@
 
         window.toggleChatAi = function(chatId) {
             const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
-            // == statt === damit Zahl/String-Vergleich klappt; Fallback per userId
             let chat = supportChats.find(c => c.id == chatId)
                     || supportChats.find(c => c.userId === activeChatUser);
             if (!chat) {
@@ -3135,9 +3118,15 @@
             event.preventDefault();
             const pwInput = document.getElementById('adminPassword').value;
             if (pwInput === 'LOL') {
-                isSuperAdmin = true;
-                adminTab = 'articles';
-                setView('admin-dashboard');
+                if (!window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
+                    // 1. Auf der Hauptseite: Weiterleitung zur Admin-Datei
+                    window.location.href = 'adminZentrale.html';
+                } else {
+                    // 2. Auf der Admin-Seite: Zentrale öffnen
+                    isSuperAdmin = true;
+                    adminTab = 'articles';
+                    setView('admin-dashboard');
+                }
             } else {
                 document.getElementById('loginError').classList.remove('hidden');
             }
@@ -3147,7 +3136,12 @@
             if(isSuperAdmin) {
                 isSuperAdmin = false;
             }
-            setView('home');
+            if (window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
+                // Wenn wir in der separaten Datei sind, leite zurück zur Startseite
+                window.location.href = 'index.html'; 
+            } else {
+                setView('home');
+            }
         }
 
         window.editArticle = function(id) {
@@ -3841,43 +3835,6 @@
             }
         }
 
-        window.executeSearchCategory = function(category) {
-            searchCategory = category; 
-            searchQuery = ""; 
-            isSearchOpen = false; 
-            setView('search');
-        }
-window.handleLogin = function(event) {
-            event.preventDefault();
-            const pwInput = document.getElementById('adminPassword').value;
-            if (pwInput === 'LOL') {
-                if (!window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
-                    // 1. Auf der Hauptseite: Weiterleitung zur Admin-Datei
-                    window.location.href = 'adminZentrale.html';
-                } else {
-                    // 2. Auf der Admin-Seite: Zentrale öffnen
-                    isSuperAdmin = true;
-                    adminTab = 'articles';
-                    setView('admin-dashboard');
-                }
-            } else {
-                document.getElementById('loginError').classList.remove('hidden');
-            }
-        }
-
-        window.exitDashboard = function() {
-            if(isSuperAdmin) {
-                isSuperAdmin = false;
-            }
-            if (window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
-                // Wenn wir in der separaten Datei sind, leite zurück zur Startseite
-                window.location.href = 'index.html'; 
-            } else {
-                setView('home');
-            }
-        }
-
-        window.editArticle = function(id) {
         window.executeSearchCategory = function(category) {
             searchCategory = category; 
             searchQuery = ""; 
