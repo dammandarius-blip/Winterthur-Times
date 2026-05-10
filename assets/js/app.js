@@ -2181,106 +2181,7 @@
 
         // --- DEIN NEUES SUPPORT CHAT WIDGET ---
         function renderSupportChatWidget() {
-            if (hasAdminAccess() && view === 'admin-dashboard') return ''; 
-            if (view === 'feedback') return ''; 
-            
-            const activeChatUser = currentUser || supportUser || ('Gast-' + sessionId);
-            let userChat = supportChats.find(c => c.userId === activeChatUser);
-            
-            if (!userChat) {
-                userChat = { id: 'temp', messages: [] };
-            }
-
-            let messagesHtml = '<p class="text-xs text-gray-400 text-center my-4 italic">Starte einen Chat mit unserem Support.</p>';
-            
-            if (userChat && userChat.messages && userChat.messages.length > 0) {
-                messagesHtml = userChat.messages.map((m, index) => {
-                    const isUser = m.sender === 'user';
-                    const isAdmin = m.sender === 'admin';
-                    
-                    let bgClass = isUser ? 'bg-blue-600 text-white' : (isAdmin ? 'bg-green-600 text-white' : 'bg-white border border-gray-300 text-gray-800');
-                    let alignClass = isUser ? 'justify-end' : 'justify-start';
-                    let roundedClass = isUser ? 'rounded-br-none' : 'rounded-bl-none';
-                    let senderLabel = isAdmin ? 'Admin' : '';
-                    
-                    return `
-                    <div class="flex ${alignClass} mb-3 group">
-                        <div class="max-w-[85%]">
-                            ${!isUser ? `<div class="text-[10px] text-gray-400 ml-1 mb-0.5 font-bold uppercase">${senderLabel}</div>` : ''}
-                            <div class="p-3 rounded-lg ${bgClass} shadow-sm ${roundedClass} text-sm">
-                                ${m.text.replace(/\n/g, '<br/>')}
-                            </div>
-                            <div class="flex items-center mt-1 gap-2 ${isUser ? 'justify-end' : 'justify-start'}">
-                                <span class="text-[9px] text-gray-400">${new Date(m.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</span>
-                            </div>
-                        </div>
-                    </div>
-                    `;
-                }).join('');
-            }
-
-            return `
-            <!-- Support Button Widget -->
-            <button onclick="toggleSupportChat()" class="fixed bottom-6 right-6 bg-blue-900 text-white p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-transform hover:scale-110 z-50 flex items-center justify-center cursor-pointer group">
-                <i data-lucide="message-square" class="w-6 h-6"></i>
-                ${(!isSupportChatOpen && userChat && userChat.messages.length > 0 && userChat.messages[userChat.messages.length-1].sender !== 'user') ? '<span class="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>' : ''}
-            </button>
-
-            <!-- Chat Window -->
-            <div id="support-chat" class="${isSupportChatOpen ? 'flex' : 'hidden'} fixed inset-0 sm:inset-auto sm:bottom-24 sm:right-6 w-full sm:w-96 bg-white border border-gray-200 sm:rounded-lg shadow-2xl z-50 flex-col h-full sm:h-[500px] sm:max-h-[70vh] font-sans overflow-hidden">
-                <!-- Header -->
-                <div class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-md z-10">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-white/20 p-2 rounded-full shrink-0">
-                            <i data-lucide="headset" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-bold leading-none mb-1 text-sm">Winterthur Times</h3>
-                            <div class="flex items-center gap-2 text-xs text-blue-200">
-                                <span class="flex items-center gap-1">
-                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                    Support
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button onclick="toggleChatAi('${userChat.id}')"
-                            title="${userChat.aiEnabled !== false ? 'KI-Antworten deaktivieren' : 'KI-Antworten aktivieren'}"
-                            class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all cursor-pointer
-                            ${userChat.aiEnabled !== false
-                                ? 'bg-green-500/20 border-green-400/50 text-green-300 hover:bg-red-500/20 hover:border-red-400/50 hover:text-red-300'
-                                : 'bg-gray-500/20 border-gray-400/50 text-gray-300 hover:bg-green-500/20 hover:border-green-400/50 hover:text-green-300'}">
-                            <i data-lucide="${userChat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3 h-3"></i>
-                            KI ${userChat.aiEnabled !== false ? 'AN' : 'AUS'}
-                        </button>
-                        <button onclick="toggleSupportChat()" class="text-blue-200 hover:text-white p-1 cursor-pointer">
-                            <i data-lucide="x" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Messages -->
-                <div id="support-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col scroll-smooth">
-                    ${messagesHtml}
-                </div>
-
-                <!-- Input Area -->
-                <div class="support-input-area bg-white border-t border-gray-200 p-3 flex flex-col gap-2 z-10">
-                    <div class="flex gap-2 items-end">
-                        <textarea id="support-input" rows="1" placeholder="Schreibe eine Nachricht..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none max-h-24 overflow-y-auto bg-gray-50 focus:bg-white transition-colors" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportMessage(); }"></textarea>
-                        <button onclick="sendSupportMessage()" class="bg-blue-900 text-white p-2.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer shrink-0">
-                            <i data-lucide="send" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <div class="text-[9px] text-center mt-1 ${userChat.aiEnabled === false ? 'text-orange-400 font-bold' : 'text-gray-400'}">
-                        ${userChat.aiEnabled === false
-                            ? 'KI deaktiviert – du wartest auf manuelle Antwort.'
-                            : 'Wir antworten so schnell wie möglich. ⚠ Achtung, die KI kann fehler machen!'}
-                    </div>
-                </div>
-            </div>
-            `;
+            return ''; // Das Chat-Widget wurde komplett entfernt
         }
 
         function renderFooter() {
@@ -2310,7 +2211,7 @@
                         <ul class="flex flex-col gap-2 text-sm text-gray-400">
                             <li><span onclick="setView('authors'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors">Unsere Autoren</span></li>
                             <li><span onclick="showModal('Über uns', 'Die Winterthur Times ist eine Demo-Umgebung.')" class="cursor-pointer hover:text-white transition-colors">Über uns</span></li>
-                            <li><span onclick="if(!isSupportChatOpen) toggleSupportChat();" class="cursor-pointer hover:text-white transition-colors">Kontakt</span></li>
+                            <li><span onclick="openFeedbackChat()" class="cursor-pointer hover:text-white transition-colors">Kontakt</span></li>
                             <li class="mt-4">
                                 <button onclick="setView('admin-login')" class="text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1 text-xs uppercase tracking-wider font-bold">
                                     <i data-lucide="lock" class="w-3 h-3"></i> main-Admin Login
