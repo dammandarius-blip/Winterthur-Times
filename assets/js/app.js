@@ -240,6 +240,17 @@
             if (!isFirebaseConnected || !firebaseDb) return;
             if (isApplyingRemoteState) return;
 
+            // --- AUTO-UNHIDE CHATS ---
+            // Holt archivierte Chats automatisch in die Admin-Ansicht zurück, wenn der Nutzer schreibt
+            supportChats.forEach(chat => {
+                if (chat.adminDeleted && chat.messages.length > 0) {
+                    const lastMsg = chat.messages[chat.messages.length - 1];
+                    if (lastMsg.sender === 'user') {
+                        chat.adminDeleted = false;
+                    }
+                }
+            });
+
             const now = firebase.firestore.FieldValue.serverTimestamp();
             const dataCol = firebaseDb.collection('data');
 
@@ -1577,6 +1588,8 @@
                 if (f.moderationStatus === 'pending') pendingFeedbackCount++;
             });
             allComments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            const visibleChats = supportChats.filter(c => !c.adminDeleted);
 
             return `
             <div class="max-w-6xl mx-auto bg-white shadow-md rounded-sm font-sans mt-4">
@@ -1604,7 +1617,7 @@
                         ${pendingFeedbackCount > 0 ? `<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-xs animate-pulse" title="${pendingFeedbackCount} warten auf Freigabe">${pendingFeedbackCount}</span>` : ''}
                     </button>` : ''}
                     ${hasAdminAccess() ? `<button onclick="adminTab='support'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t flex items-center gap-2 ${adminTab === 'support' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
-                        Support <span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">${supportChats.length}</span>
+                        Support <span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">${visibleChats.length}</span>
                     </button>` : ''}
                     ${hasAdminAccess() ? `<button onclick="adminTab='backup'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t flex items-center gap-2 ${adminTab === 'backup' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
                         <i data-lucide="database" class="w-4 h-4"></i> Backup
@@ -1953,14 +1966,14 @@
                         })()}
 
                     ` : adminTab === 'support' && hasAdminAccess() ? `
-                        
-                        <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="help-circle" class="text-blue-600"></i> Support-Anfragen</h3>
-                        
-                        <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[600px] min-h-[500px]">
-                            <div class="w-full md:w-1/3 border border-gray-200 rounded bg-white overflow-y-auto max-h-[300px] md:max-h-full">
-                                ${supportChats.length === 0 ? '<p class="p-4 text-gray-500 italic text-sm">Keine Support-Anfragen vorhanden.</p>' : supportChats.map(c => {
-                                    const lastMsg = c.messages[c.messages.length - 1];
-                                    const isSelected = adminSelectedChatId === c.id;
+                
+                <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="help-circle" class="text-blue-600"></i> Support-Anfragen</h3>
+                
+                <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[600px] min-h-[500px]">
+                    <div class="w-full md:w-1/3 border border-gray-200 rounded bg-white overflow-y-auto max-h-[300px] md:max-h-full">
+                        ${visibleChats.length === 0 ? '<p class="p-4 text-gray-500 italic text-sm">Keine Support-Anfragen vorhanden.</p>' : visibleChats.map(c => {
+                            const lastMsg = c.messages[c.messages.length - 1];
+                            const isSelected = adminSelectedChatId === c.id;
                                     const isUnread = lastMsg && lastMsg.sender === 'user';
                                     
                                     const user = registeredUsers.find(u => u.username === c.userId);
@@ -1996,24 +2009,30 @@
                                     
                                     return `
                                         <div class="bg-white p-4 border-b border-gray-200 flex justify-between items-center shadow-sm z-10">
-                                            <h4 ${user ? `onclick="viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-blue-900 flex items-center gap-2 ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
-                                                ${user ? getUserAvatar(chat.userId, 'w-6 h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-5 h-5"></i>'}
-                                                Chat mit ${chat.userId}
-                                                ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
-                                                ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
-                                            </h4>
-                                            <button onclick="toggleChatAi('${chat.id}')"
-                                                title="${chat.aiEnabled !== false ? 'KI deaktivieren' : 'KI aktivieren'}"
-                                                class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer
-                                                ${chat.aiEnabled !== false
-                                                    ? 'bg-green-50 border-green-300 text-green-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
-                                                    : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-300 hover:text-green-700'}">
-                                                <i data-lucide="${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3.5 h-3.5"></i>
-                                                KI ${chat.aiEnabled !== false ? 'AN' : 'AUS'}
-                                            </button>
-                                        </div>
-                                        
-                                        <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
+                                    <h4 ${user ? `onclick="viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-blue-900 flex items-center gap-2 ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
+                                        ${user ? getUserAvatar(chat.userId, 'w-6 h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-5 h-5"></i>'}
+                                        Chat mit ${chat.userId}
+                                        ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
+                                        ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
+                                    </h4>
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="toggleChatAi('${chat.id}')"
+                                            title="${chat.aiEnabled !== false ? 'KI deaktivieren' : 'KI aktivieren'}"
+                                            class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer
+                                            ${chat.aiEnabled !== false
+                                                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                                                : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-300 hover:text-green-700'}">
+                                            <i data-lucide="${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3.5 h-3.5"></i>
+                                            KI ${chat.aiEnabled !== false ? 'AN' : 'AUS'}
+                                        </button>
+                                        <button onclick="adminArchiveChat('${chat.id}')" class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer" title="Chat für Admins ausblenden (Nutzer sieht ihn weiterhin bis 10 Tage)">
+                                            <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+                                            Archivieren
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
                                             ${chat.messages.map((m, index) => `
                                                 <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
                                                     <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
@@ -2733,6 +2752,16 @@
             }, 50);
         }
 
+        window.adminArchiveChat = function(chatId) {
+            const chat = supportChats.find(c => c.id == chatId);
+            if(chat) {
+                chat.adminDeleted = true;
+                adminSelectedChatId = null;
+                window.saveState();
+                renderApp();
+            }
+        }
+
         window.showUserLogin = function() {
             currentModal = {
                 type: 'login',
@@ -2759,46 +2788,46 @@
             }, 100);
         }
 
-        function showWarning(message) {
-            const warning = document.getElementById('loginWarning');
-            if (warning) {
-                warning.textContent = message;
-                warning.classList.remove('hidden');
+        function restoreFocus() {
+            if (activeInputId) {
+                const el = document.getElementById(activeInputId);
+                if (el) {
+                    el.focus();
+                    if (activeInputSelectionStart !== null) {
+                        try { el.setSelectionRange(activeInputSelectionStart, activeInputSelectionEnd); } catch(e){}
+                    }
+                }
             }
         }
 
-        window.loginUser = function() {
-            const usernameInput = document.getElementById('usernameInput');
-            const passwordInput = document.getElementById('passwordInput');
-
-            const identifier = usernameInput ? usernameInput.value.trim() : '';
-            const password = passwordInput ? passwordInput.value.trim() : '';
-
-            // Wenn Firebase aktiv ist, läuft Login über Firebase Auth (E-Mail + Passwort).
-            if (isFirebaseConnected && firebaseAuth) {
-                if (!identifier || !password) {
-                    showWarning("Bitte fülle Benutzername/E-Mail und Passwort aus.");
-                    return;
-                }
-
-                const mappedEmail = identifier.includes('@')
-                    ? identifier
-                    : ((registeredUsers.find(u => u.username === identifier) || {}).email || '');
-
-                if (!mappedEmail || !mappedEmail.includes('@')) {
-                    showWarning("Bitte gib deine E-Mail ein (oder registriere dich zuerst).");
-                    return;
-                }
-
-                firebaseAuth.signInWithEmailAndPassword(mappedEmail, password)
-                    .then(() => {
-                        currentModal = null;
-                        renderApp();
-                    })
-                    .catch((err) => {
-                        console.error('Firebase Login fehlgeschlagen:', err);
-                        showWarning("Login fehlgeschlagen. Prüfe E-Mail/Passwort.");
-                    });
+        function renderApp() {
+            preserveFocus();
+            
+            // --- 10 TAGE CLEANUP BEIM RENDERN ---
+            // Prüft, ob Nachrichten älter als 10 Tage sind und löscht sie restlos.
+            const now = Date.now();
+            const tenDays = 10 * 24 * 60 * 60 * 1000;
+            let chatsChanged = false;
+            
+            supportChats.forEach(chat => {
+                const origLen = chat.messages.length;
+                chat.messages = chat.messages.filter(m => (now - new Date(m.timestamp).getTime()) <= tenDays);
+                if (origLen !== chat.messages.length) chatsChanged = true;
+            });
+            
+            // Chats ganz entfernen, wenn keine Nachrichten mehr drin sind
+            const origChatsLen = supportChats.length;
+            supportChats = supportChats.filter(chat => chat.messages.length > 0);
+            if (origChatsLen !== supportChats.length) chatsChanged = true;
+            
+            if (chatsChanged && isFirebaseConnected && typeof scheduleRemoteSave === 'function') {
+                scheduleRemoteSave(); // Änderungen speichern, falls alte Chats/Nachrichten abgelaufen sind
+            }
+            // -------------------------------------
+            
+            if (!hasPassedGatekeeper) {
+                document.getElementById('app').innerHTML = renderGatekeeper();
+                restoreFocus();
                 return;
             }
 
