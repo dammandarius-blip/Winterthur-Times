@@ -2804,7 +2804,7 @@
             }
         }
 
-        function renderApp() {
+        function renderAppDuplicate_DO_NOT_USE() {
             preserveFocus();
             
             // --- 10 TAGE CLEANUP BEIM RENDERN ---
