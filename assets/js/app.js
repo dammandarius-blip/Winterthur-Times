@@ -3847,8 +3847,50 @@
             isSearchOpen = false; 
             setView('search');
         }
+window.handleLogin = function(event) {
+            event.preventDefault();
+            const pwInput = document.getElementById('adminPassword').value;
+            if (pwInput === 'LOL') {
+                if (!window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
+                    // 1. Auf der Hauptseite: Weiterleitung zur Admin-Datei
+                    window.location.href = 'adminZentrale.html';
+                } else {
+                    // 2. Auf der Admin-Seite: Zentrale öffnen
+                    isSuperAdmin = true;
+                    adminTab = 'articles';
+                    setView('admin-dashboard');
+                }
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        window.exitDashboard = function() {
+            if(isSuperAdmin) {
+                isSuperAdmin = false;
+            }
+            if (window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
+                // Wenn wir in der separaten Datei sind, leite zurück zur Startseite
+                window.location.href = 'index.html'; 
+            } else {
+                setView('home');
+            }
+        }
+
+        window.editArticle = function(id) {
+        window.executeSearchCategory = function(category) {
+            searchCategory = category; 
+            searchQuery = ""; 
+            isSearchOpen = false; 
+            setView('search');
+        }
 
         // --- INITIALISIERUNG ---
+        // Wenn die neue Admin-Datei geladen wird, zeige sofort den Login-Bildschirm
+        if (window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
+            view = 'admin-login';
+        }
+
         // Startet die komplette App
         init3DLogo();
         fetchWeather();
