@@ -51,8 +51,8 @@ function initFloatingSupportChat() {
                 </div>
                 <div class="flex items-center gap-2">
                     <!-- KI An/Aus Schalter -->
-                    <button onclick="toggleSupportAI()" class="text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 transition-all px-2 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold" title="KI an-/ausschalten">
-                        <i data-lucide="cpu" class="w-4 h-4"></i> <span id="ai-toggle-text" class="hidden sm:inline">KI aus</span>
+                    <button id="aiToggleButton" onclick="toggleSupportAI()" class="bg-green-500 hover:bg-green-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-[0_0_12px_rgba(74,222,128,0.8)] border border-green-400" title="KI an-/ausschalten">
+                        <i data-lucide="bot" id="ai-toggle-icon" class="w-4 h-4"></i> <span id="ai-toggle-text">KI: AN</span>
                     </button>
                     <!-- Schließen -->
                     <button onclick="toggleSupportChat()" class="text-white hover:text-blue-200 transition-colors p-1.5 rounded-lg hover:bg-white/10" title="Chat schließen">
@@ -67,16 +67,22 @@ function initFloatingSupportChat() {
             </div>
             
             <!-- Eingabefeld (Wächst automatisch mit Text) -->
-            <div class="p-3 sm:p-4 bg-white border-t border-gray-100 flex gap-2 items-end shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe">
-                <textarea id="supportChatInput" rows="1"
-                    class="flex-1 px-4 py-3 bg-gray-100 border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-sm resize-none max-h-32 transition-all leading-relaxed" 
-                    placeholder="Wie können wir helfen?..." 
-                    oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 120) + 'px'"
-                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportChatMessage(); }"></textarea>
-                
-                <button id="supportChatSendBtn" onclick="sendSupportChatMessage()" class="bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm flex items-center justify-center h-[46px] w-[46px]">
-                    <i data-lucide="send" class="w-5 h-5 ml-0.5"></i>
-                </button>
+            <div class="bg-white border-t border-gray-100 flex flex-col shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe">
+                <div class="p-3 sm:p-4 flex gap-2 items-end pb-2">
+                    <textarea id="supportChatInput" rows="1"
+                        class="flex-1 px-4 py-3 bg-gray-100 border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-sm resize-none max-h-32 transition-all leading-relaxed" 
+                        placeholder="Wie können wir helfen?..." 
+                        oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 120) + 'px'"
+                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportChatMessage(); }"></textarea>
+                    
+                    <button id="supportChatSendBtn" onclick="sendSupportChatMessage()" class="bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm flex items-center justify-center h-[46px] w-[46px]">
+                        <i data-lucide="send" class="w-5 h-5 ml-0.5"></i>
+                    </button>
+                </div>
+                <!-- Warntext für die KI -->
+                <div class="text-center pb-3 px-4">
+                    <p class="text-[10px] text-gray-400">Hinweis: Die KI kann Fehler machen. Bitte überprüfe wichtige Informationen.</p>
+                </div>
             </div>
         </div>
     `;
@@ -119,17 +125,28 @@ function toggleSupportAI() {
     aiEnabled = !aiEnabled;
     const indicator = document.getElementById('ai-status-indicator');
     const statusText = document.getElementById('ai-status-text');
+    const toggleBtn = document.getElementById('aiToggleButton');
+    const toggleIcon = document.getElementById('ai-toggle-icon');
     const toggleText = document.getElementById('ai-toggle-text');
     
     if (aiEnabled) {
         indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
         statusText.innerText = "KI-Assistent aktiv";
-        toggleText.innerText = "KI aus";
+        
+        // Füge das grüne Leuchten (Glow) wieder hinzu
+        toggleBtn.className = "bg-green-500 hover:bg-green-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-[0_0_12px_rgba(74,222,128,0.8)] border border-green-400";
+        toggleIcon.setAttribute('data-lucide', 'bot');
+        toggleText.innerText = "KI: AN";
     } else {
         indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
         statusText.innerText = "Nur Menschlicher Support";
-        toggleText.innerText = "KI an";
+        
+        // Entferne das Leuchten und mache den Button grau
+        toggleBtn.className = "bg-gray-500 hover:bg-gray-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-sm border border-gray-400";
+        toggleIcon.setAttribute('data-lucide', 'bot-off');
+        toggleText.innerText = "KI: AUS";
     }
+    if (window.lucide) lucide.createIcons();
 }
 
 // 3. UI updaten (Nachrichten rendern & Animationen)
