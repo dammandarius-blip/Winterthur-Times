@@ -6,44 +6,76 @@
 const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
 let chatMessages = [];
 let isChatOpen = false;
+let aiEnabled = true; // Neue Variable für KI-Status
+
+// --- Zusätzliches CSS für Mobile & Scrollbars einfügen ---
+const style = document.createElement('style');
+style.innerHTML = `
+    .pb-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    #supportChatMessages::-webkit-scrollbar { width: 6px; }
+    #supportChatMessages::-webkit-scrollbar-track { background: transparent; }
+    #supportChatMessages::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    .typing-dot { animation: typingBounce 1.4s infinite ease-in-out both; }
+    @keyframes typingBounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+    }
+`;
+document.head.appendChild(style);
 
 // 1. UI dynamisch in die Seite einfügen
 function initFloatingSupportChat() {
     const container = document.createElement('div');
     container.innerHTML = `
         <!-- Runder Chat-Button unten rechts -->
-        <button id="chatToggleBtn" onclick="toggleSupportChat()" class="fixed bottom-6 right-6 bg-blue-900 text-white p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-all z-[100] flex items-center justify-center">
-            <i data-lucide="message-circle" class="w-6 h-6"></i>
+        <button id="chatToggleBtn" onclick="toggleSupportChat()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-600 text-white p-3 sm:p-4 rounded-full shadow-2xl hover:bg-blue-700 hover:scale-105 transition-all duration-300 z-[100] flex items-center justify-center">
+            <i data-lucide="message-circle" class="w-7 h-7"></i>
         </button>
 
-        <!-- Das eigentliche Chat-Fenster (standardmäßig versteckt) -->
-        <div id="support-chat-widget" class="fixed bottom-24 right-6 w-80 h-[28rem] bg-white border border-gray-200 shadow-2xl rounded-xl z-[100] hidden flex-col overflow-hidden font-sans">
+        <!-- Das eigentliche Chat-Fenster (Mobile: Vollbild, Desktop: Schwebend) -->
+        <div id="support-chat-widget" class="fixed bottom-0 right-0 w-full h-[100dvh] sm:bottom-24 sm:right-6 sm:w-[380px] sm:h-[36rem] bg-white sm:border sm:border-gray-200 shadow-2xl sm:rounded-2xl z-[100] hidden flex-col overflow-hidden font-sans transition-all duration-300 transform origin-bottom-right">
             
             <!-- Header -->
-            <div class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-md">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="bot" class="w-5 h-5"></i>
-                    <h3 class="font-bold tracking-wide">Support AI</h3>
+            <div class="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-3 sm:p-4 flex justify-between items-center shadow-md z-10">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div class="bg-white/10 p-2 rounded-xl">
+                            <i data-lucide="bot" class="w-6 h-6"></i>
+                        </div>
+                        <span id="ai-status-indicator" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full transition-colors duration-300"></span>
+                    </div>
+                    <div>
+                        <h3 class="font-bold tracking-wide text-base leading-tight">Support</h3>
+                        <p class="text-xs text-blue-200 leading-tight mt-0.5" id="ai-status-text">KI-Assistent aktiv</p>
+                    </div>
                 </div>
-                <button onclick="toggleSupportChat()" class="text-white hover:text-gray-300 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <div class="flex items-center gap-2">
+                    <!-- KI An/Aus Schalter -->
+                    <button onclick="toggleSupportAI()" class="text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 transition-all px-2 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold" title="KI an-/ausschalten">
+                        <i data-lucide="cpu" class="w-4 h-4"></i> <span id="ai-toggle-text" class="hidden sm:inline">KI aus</span>
+                    </button>
+                    <!-- Schließen -->
+                    <button onclick="toggleSupportChat()" class="text-white hover:text-blue-200 transition-colors p-1.5 rounded-lg hover:bg-white/10" title="Chat schließen">
+                        <i data-lucide="chevron-down" class="w-6 h-6"></i>
+                    </button>
+                </div>
             </div>
             
             <!-- Chat-Verlauf -->
-            <div id="supportChatMessages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-gray-50 text-sm">
+            <div id="supportChatMessages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-slate-50 text-sm gap-4 scroll-smooth">
                 <!-- Nachrichten werden hier eingefügt -->
             </div>
             
-            <!-- Eingabefeld -->
-            <div class="p-3 bg-white border-t border-gray-200 flex gap-2 items-center">
-                <input id="supportChatInput" type="text" 
-                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900 text-sm" 
-                    placeholder="Schreibe eine Nachricht..." 
-                    onkeydown="if(event.key === 'Enter') sendSupportChatMessage()" />
+            <!-- Eingabefeld (Wächst automatisch mit Text) -->
+            <div class="p-3 sm:p-4 bg-white border-t border-gray-100 flex gap-2 items-end shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe">
+                <textarea id="supportChatInput" rows="1"
+                    class="flex-1 px-4 py-3 bg-gray-100 border border-transparent rounded-2xl focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-sm resize-none max-h-32 transition-all leading-relaxed" 
+                    placeholder="Wie können wir helfen?..." 
+                    oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 120) + 'px'"
+                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendSupportChatMessage(); }"></textarea>
                 
-                <button id="supportChatSendBtn" onclick="sendSupportChatMessage()" class="bg-blue-900 text-white p-2 rounded-md hover:bg-blue-800 transition-colors">
-                    <i data-lucide="send" class="w-5 h-5"></i>
+                <button id="supportChatSendBtn" onclick="sendSupportChatMessage()" class="bg-blue-600 text-white rounded-2xl hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm flex items-center justify-center h-[46px] w-[46px]">
+                    <i data-lucide="send" class="w-5 h-5 ml-0.5"></i>
                 </button>
             </div>
         </div>
@@ -56,33 +88,51 @@ function initFloatingSupportChat() {
     }
 }
 
-// 2. Chat öffnen/schließen
+// 2. Chat öffnen/schließen (Für Mobile optimiert)
 function toggleSupportChat() {
     isChatOpen = !isChatOpen;
     const widget = document.getElementById('support-chat-widget');
-    const toggleBtnIcon = document.querySelector('#chatToggleBtn i');
+    const toggleBtn = document.getElementById('chatToggleBtn');
     
     if (isChatOpen) {
         widget.style.display = 'flex';
-        // Icon ändern auf X
-        toggleBtnIcon.setAttribute('data-lucide', 'x');
-        loadSupportChat(); // Nachrichten laden, wenn geöffnet
+        // Chat-Button auf mobilen Geräten verstecken, um Platz zu sparen
+        toggleBtn.classList.add('sm:flex', 'hidden');
         
-        // Fokus auf Eingabefeld setzen
+        loadSupportChat(); 
+        
         setTimeout(() => {
             const input = document.getElementById('supportChatInput');
-            if(input) input.focus();
+            if(input) {
+                input.focus();
+                input.selectionStart = input.selectionEnd = input.value.length;
+            }
         }, 100);
     } else {
         widget.style.display = 'none';
-        // Icon zurück auf Chat-Blase
-        toggleBtnIcon.setAttribute('data-lucide', 'message-circle');
+        toggleBtn.classList.remove('hidden');
     }
-    
-    if (window.lucide) lucide.createIcons();
 }
 
-// 3. UI updaten (Nachrichten rendern)
+// 2.5 KI an-/ausschalten
+function toggleSupportAI() {
+    aiEnabled = !aiEnabled;
+    const indicator = document.getElementById('ai-status-indicator');
+    const statusText = document.getElementById('ai-status-text');
+    const toggleText = document.getElementById('ai-toggle-text');
+    
+    if (aiEnabled) {
+        indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
+        statusText.innerText = "KI-Assistent aktiv";
+        toggleText.innerText = "KI aus";
+    } else {
+        indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
+        statusText.innerText = "Nur Menschlicher Support";
+        toggleText.innerText = "KI an";
+    }
+}
+
+// 3. UI updaten (Nachrichten rendern & Animationen)
 function updateSupportChatUI() {
     const chatEl = document.getElementById('supportChatMessages');
     if (!chatEl) return;
@@ -90,21 +140,35 @@ function updateSupportChatUI() {
     chatEl.innerHTML = "";
     
     if (chatMessages.length === 0) {
-        chatEl.innerHTML = `<div class="text-center text-gray-400 mt-10 text-xs">Schreibe eine Nachricht, um den Chat zu starten.</div>`;
+        chatEl.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-3 mt-10">
+                <div class="bg-gray-100 p-4 rounded-full"><i data-lucide="message-square" class="w-8 h-8 text-gray-300"></i></div>
+                <p class="text-sm">Schreibe uns eine Nachricht.<br>Wir helfen dir gerne weiter!</p>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
         return;
     }
 
     for (const msg of chatMessages) {
         const div = document.createElement("div");
         
-        // Styling abhängig davon, ob es User oder Bot ist
-        if (msg.role === "user") {
-            div.className = "bg-blue-100 text-blue-900 p-3 rounded-lg rounded-br-none mb-3 self-end max-w-[85%] shadow-sm";
+        if (msg.isTyping) {
+            // Animation für "KI denkt nach"
+            div.className = "bg-white border border-gray-200 p-4 rounded-2xl rounded-bl-none self-start shadow-sm flex items-center gap-1.5 w-16 h-11";
+            div.innerHTML = `
+                <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0s"></span>
+                <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0.2s"></span>
+                <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0.4s"></span>
+            `;
+        } else if (msg.role === "user") {
+            div.className = "bg-blue-600 text-white px-4 py-2.5 rounded-2xl rounded-br-none self-end max-w-[85%] shadow-sm whitespace-pre-wrap leading-relaxed";
+            div.textContent = msg.content;
         } else {
-            div.className = "bg-white border border-gray-200 text-gray-800 p-3 rounded-lg rounded-bl-none mb-3 self-start max-w-[85%] shadow-sm";
+            div.className = "bg-white border border-gray-200 text-gray-800 px-4 py-2.5 rounded-2xl rounded-bl-none self-start max-w-[85%] shadow-sm whitespace-pre-wrap leading-relaxed";
+            div.textContent = msg.content;
         }
         
-        div.textContent = msg.content;
         chatEl.appendChild(div);
     }
     
@@ -143,17 +207,45 @@ async function sendSupportChatMessage() {
     const text = inputEl.value.trim();
     if (!text) return;
 
-    // UI sperren
+    // UI sperren & Eingabefeld zurücksetzen
     inputEl.value = "";
+    inputEl.style.height = ''; // Auto-Resize zurücksetzen
     inputEl.disabled = true;
     sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i>';
+    if (window.lucide) lucide.createIcons();
 
     // User-Nachricht anzeigen & speichern
     chatMessages.push({ role: "user", content: text });
     updateSupportChatUI();
     await saveSupportChat();
 
-    // KI-Antwort abfragen
+    // Wenn KI deaktiviert ist, antworte sofort mit einer System-Nachricht
+    if (!aiEnabled) {
+        setTimeout(async () => {
+            chatMessages.push({ 
+                role: "assistant", 
+                content: "🤖 Die KI ist derzeit ausgeschaltet. Deine Nachricht wurde sicher gespeichert. Ein Mitarbeiter wird sich das bald ansehen." 
+            });
+            updateSupportChatUI();
+            await saveSupportChat();
+            
+            inputEl.disabled = false;
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5 ml-0.5"></i>';
+            if (window.lucide) lucide.createIcons();
+            inputEl.focus();
+        }, 800);
+        return;
+    }
+
+    // --- KI Antwort abfragen ---
+    
+    // Temporäre "Tippt..." Animation hinzufügen
+    const typingId = Date.now();
+    chatMessages.push({ role: "assistant", content: "", isTyping: true, id: typingId });
+    updateSupportChatUI();
+
     try {
         const res = await fetch(`${WORKER_BASE}/api/chat`, {
             method: "POST",
@@ -166,13 +258,20 @@ async function sendSupportChatMessage() {
         });
 
         const data = await res.json();
+        
+        // Tippen-Animation entfernen
+        chatMessages = chatMessages.filter(msg => msg.id !== typingId);
+        
+        // Richtige Antwort hinzufügen
         chatMessages.push({ role: "assistant", content: data.reply });
         updateSupportChatUI();
         await saveSupportChat();
     } catch (e) {
+        chatMessages = chatMessages.filter(msg => msg.id !== typingId);
+        
         chatMessages.push({
             role: "assistant",
-            content: "Leider ist ein Verbindungsfehler aufgetreten."
+            content: "⚠️ Leider ist ein Verbindungsfehler aufgetreten."
         });
         updateSupportChatUI();
     }
@@ -180,6 +279,8 @@ async function sendSupportChatMessage() {
     // UI entsperren
     inputEl.disabled = false;
     sendBtn.disabled = false;
+    sendBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5 ml-0.5"></i>';
+    if (window.lucide) lucide.createIcons();
     inputEl.focus();
 }
 
