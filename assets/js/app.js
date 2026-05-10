@@ -490,6 +490,10 @@
 
         function init3DLogo() {
             if (logoRenderer) return;
+            if (!window.THREE) {
+                console.warn('Three.js (THREE) nicht geladen – 3D-Logo wird deaktiviert.');
+                return;
+            }
             logoScene = new THREE.Scene();
             logoCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
             logoCamera.position.z = 6.5;
