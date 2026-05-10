@@ -2785,7 +2785,7 @@
                 renderApp();
                 scrollDown();
 
-                const WORKER_URL = "https://askai.mikestaub705.workers.dev/";
+                const WORKER_URL = "https://askai.mikestaub705.workers.dev/api/chat";
 
                 try {
                     const userStatus = currentUser
@@ -2807,7 +2807,7 @@
                         body: JSON.stringify({
                             message: contextPrefix + text,
                             loggedIn: window.isLoggedIn === true,
-                            popularArticles: popularArticles
+                            popular: popularArticles
                         })
                     });
                     const data = await res.json();
@@ -3848,6 +3848,9 @@
             setView('search');
         }
 
-        // --- SICHERHEITS-CLEANUP ---
-        // Versteckt das alte Chat-Fenster zwingend (falls es noch in der HTML-Datei hängt)
-        const cleanup
+        // --- INITIALISIERUNG ---
+        // Startet die komplette App
+        init3DLogo();
+        fetchWeather();
+        initFirebase();
+        renderApp();
