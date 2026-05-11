@@ -163,6 +163,15 @@ const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
 
 script.js
 14 kB
+/**
+ * Winterthur Times - Support Chat Widget
+ * Integriert deinen Cloudflare Worker für das Laden/Speichern von Chats
+ */
+
+const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
+
+script.js
+15 kB
 ﻿
 /**
  * Winterthur Times - Support Chat Widget
@@ -172,13 +181,10 @@ script.js
 const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
 let chatMessages = [];
 let isChatOpen = false;
-let aiEnabled = true; // Neue Variable für KI-Status
+let aiEnabled = true;
 
-// --- User-ID erzeugen (pro Browser einmalig) ---
-if (!localStorage.userId) {
-    localStorage.userId = crypto.randomUUID();
-}
-const userId = localStorage.userId;
+// --- userId wird erst gesetzt, wenn DOM bereit ist ---
+let userId;
 
 // --- Zusätzliches CSS für Mobile & Scrollbars einfügen ---
 const style = document.createElement('style');
@@ -461,6 +467,12 @@ async function sendSupportChatMessage() {
     inputEl.focus();
 }
 
+// --- DOMContentLoaded: userId erzeugen & Chat starten ---
 document.addEventListener("DOMContentLoaded", () => {
+    if (!localStorage.userId) {
+        localStorage.userId = crypto.randomUUID();
+    }
+    userId = localStorage.userId;
+
     initFloatingSupportChat();
 });
