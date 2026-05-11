@@ -773,828 +773,612 @@ function renderHeader() {
     </header>`;
 }
 
-function renderGallery() {
-    const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+function renderAdminDashboard() {
+    if (!hasAdminAccess() && adminTab !== 'articles') {
+        adminTab = 'articles';
+    }
 
-    let validImages = communityImages.filter(img => new Date(img.timestamp) > twentyFourHoursAgo);
-    if (!isSuperAdmin) validImages = validImages.filter(img => !img.isDeleted);
-    validImages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    const heuteImages = [];
-    const gesternImages = [];
-
-    validImages.forEach(img => {
-        const imgDate = new Date(img.timestamp);
-        if (imgDate.getDate() === now.getDate() && imgDate.getMonth() === now.getMonth() && imgDate.getFullYear() === now.getFullYear()) {
-            heuteImages.push(img);
-        } else {
-            gesternImages.push(img);
-        }
+    let allComments = [];
+    let pendingCommentCount = 0;
+    let pendingFeedbackCount = 0;
+    articles.forEach(a => {
+        a.comments.forEach(c => {
+            allComments.push({ ...c, articleId: a.id, articleTitle: a.title, type: 'comment' });
+            if (c.moderationStatus === 'pending') pendingCommentCount++;
+        });
     });
+    siteFeedbacks.forEach(f => {
+        if (f.moderationStatus === 'pending') pendingFeedbackCount++;
+    });
+    allComments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    const renderImageGrid = (images) => {
-        if (images.length === 0) return '<p class="text-gray-500 italic text-sm mb-8">In diesem Zeitraum wurden noch keine Bilder hochgeladen.</p>';
-        return `
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
-            ${images.map(img => {
-                const isLiked = currentUser && img.likes && img.likes.includes(currentUser);
-                return `
-                <div class="relative group cursor-pointer aspect-square bg-gray-100 border border-gray-200 rounded overflow-hidden ${img.isDeleted ? 'opacity-60 grayscale' : ''}" onclick="showImageModal('${img.url}')">
-                    <img src="${img.url}" alt="Community Bild" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ${img.isDeleted ? '<div class="absolute top-2 left-2 bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded z-20 uppercase">Gelöscht</div>' : ''}
-                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 flex items-end justify-between pointer-events-none">
-                        <div class="flex items-center gap-2">
-                            ${getUserAvatar(img.uploader, 'w-6 h-6', 'w-3 h-3', false)}
-                            <div class="flex flex-col">
-                                <span class="text-white font-bold text-xs line-clamp-1">${getDisplayName(img.uploader)}</span>
-                                <span class="text-gray-300 text-[10px] time-ago-display" data-timestamp="${img.timestamp}">${getTimeAgo(img.timestamp)}</span>
+    // Wir zeigen nur Chats an, die vom Admin nicht manuell "archiviert" wurden
+    const visibleChats = supportChats.filter(c => !c.adminDeleted);
+
+    return `
+    <div class="max-w-6xl mx-auto bg-white shadow-md rounded-sm font-sans mt-4">
+        
+        <div class="flex justify-between items-center p-6 border-b border-gray-200 bg-gray-50">
+            <h2 class="text-3xl font-black uppercase flex items-center gap-3">
+                <i data-lucide="${hasAdminAccess() ? 'shield' : 'pen-tool'}" class="w-8 h-8 text-blue-900"></i> ${hasAdminAccess() ? 'Admin-Zentrale' : 'Redaktions-Dashboard'}
+            </h2>
+            <button onclick="exitDashboard()" class="text-gray-500 hover:text-red-600 font-bold flex items-center gap-1 cursor-pointer">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Dashboard verlassen
+            </button>
+        </div>
+
+        <div class="flex gap-1 border-b border-gray-200 px-6 pt-4 bg-gray-50 overflow-x-auto">
+            <button onclick="adminTab='articles'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t ${adminTab === 'articles' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Artikel</button>
+            ${hasAdminAccess() ? `<button onclick="adminTab='categories'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t ${adminTab === 'categories' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Ressorts</button>` : ''}
+            ${hasAdminAccess() ? `<button onclick="adminTab='authors'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t ${adminTab === 'authors' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Autoren</button>` : ''}
+            ${hasAdminAccess() ? `<button onclick="adminTab='users'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t ${(adminTab === 'users' || adminTab === 'userDetails') ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">Benutzer</button>` : ''}
+            ${hasAdminAccess() ? `<button onclick="adminTab='comments'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t flex items-center gap-2 ${adminTab === 'comments' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                Kommentare <span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">${allComments.length}</span>
+                ${pendingCommentCount > 0 ? `<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-xs animate-pulse" title="${pendingCommentCount} warten auf Freigabe">${pendingCommentCount}</span>` : ''}
+            </button>` : ''}
+            ${hasAdminAccess() ? `<button onclick="adminTab='feedback'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t flex items-center gap-2 ${adminTab === 'feedback' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                Bewertungen <span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">${siteFeedbacks.length}</span>
+                ${pendingFeedbackCount > 0 ? `<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full text-xs animate-pulse" title="${pendingFeedbackCount} warten auf Freigabe">${pendingFeedbackCount}</span>` : ''}
+            </button>` : ''}
+            ${hasAdminAccess() ? `<button onclick="adminTab='support'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t flex items-center gap-2 ${adminTab === 'support' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                Support <span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">${visibleChats.length}</span>
+            </button>` : ''}
+            ${hasAdminAccess() ? `<button onclick="adminTab='backup'; renderApp()" class="px-6 py-3 font-bold uppercase text-sm rounded-t flex items-center gap-2 ${adminTab === 'backup' ? 'bg-white text-blue-900 border border-b-0 border-gray-200' : 'text-gray-500 hover:text-blue-600'}">
+                <i data-lucide="database" class="w-4 h-4"></i> Backup
+            </button>` : ''}
+        </div>
+
+        <div class="p-6 md:p-8">
+            ${adminTab === 'categories' && hasAdminAccess() ? `
+                <h3 class="text-xl font-bold uppercase mb-6 flex items-center gap-2 border-b pb-2"><i data-lucide="layers" class="text-blue-600"></i> Ressorts verwalten</h3>
+                
+                <div class="bg-blue-50 p-4 rounded text-sm text-gray-700 flex items-start gap-3 mb-6 border border-blue-100">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0"></i>
+                    <p>Hier kannst du neue Ressorts anlegen. Du kannst ein Ressort nur löschen, wenn kein Artikel mehr damit verknüpft ist.</p>
+                </div>
+
+                <div class="flex gap-4 mb-8">
+                    <input type="text" id="newCategoryInput" placeholder="Name des neuen Ressorts..." class="flex-1 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') addCategory()" />
+                    <button onclick="addCategory()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors flex items-center gap-2 cursor-pointer">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Hinzufügen
+                    </button>
+                </div>
+
+                <ul class="flex flex-col gap-3">
+                    ${categories.map(cat => {
+                        const usedInArticles = articles.filter(a => a.category === cat);
+                        const isInUse = usedInArticles.length > 0;
+                        return `
+                            <li class="flex justify-between items-center bg-gray-50 p-4 rounded border border-gray-200">
+                                <span class="font-bold text-lg text-blue-900">${cat}</span>
+                                ${isInUse ? `
+                                    <span class="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full font-bold flex items-center gap-1">
+                                        <i data-lucide="lock" class="w-3 h-3"></i> in ${usedInArticles.length} Artikel(n) genutzt
+                                    </span>
+                                ` : `
+                                    <button onclick="deleteCategory('${cat}')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded transition-colors cursor-pointer flex items-center gap-1 text-sm font-bold">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i> Löschen
+                                    </button>
+                                `}
+                            </li>
+                        `;
+                    }).join('')}
+                </ul>
+
+            ` : adminTab === 'authors' && hasAdminAccess() ? `
+                <h3 class="text-xl font-bold uppercase mb-6 flex items-center gap-2 border-b pb-2">
+                    <i data-lucide="${editingAuthorId ? 'edit' : 'user-plus'}" class="text-blue-600"></i> 
+                    ${editingAuthorId ? 'Autor bearbeiten' : 'Neuen Autor hinzufügen'}
+                </h3>
+                
+                <form onsubmit="handleSaveAuthor(event)" class="flex flex-col gap-6 font-sans mb-12">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold mb-2 text-gray-700">Name des Autors</label>
+                            <input required type="text" id="author-name" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2 text-gray-700">Profilbild (Optional)</label>
+                            <div class="flex flex-col gap-2 p-3 bg-gray-50 border border-gray-200 rounded">
+                                <input type="file" id="author-image-file" accept="image/*" class="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white" />
+                                <span class="text-xs text-center text-gray-400 uppercase font-bold">oder URL</span>
+                                <input type="url" id="author-image-url" placeholder="https://..." class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500" />
                             </div>
                         </div>
-                        <button onclick="event.stopPropagation(); toggleCommunityImageLike(${img.id})" class="pointer-events-auto flex items-center gap-1 ${isLiked ? 'text-red-500' : 'text-white'} hover:scale-110 transition-transform cursor-pointer">
-                            <i data-lucide="heart" class="w-5 h-5 ${isLiked ? 'fill-current text-red-500' : 'drop-shadow-md'}"></i>
-                            <span class="text-xs font-bold drop-shadow-md">${img.likes ? img.likes.length : 0}</span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Biografie / Über den Autor</label>
+                        <textarea required rows="3" id="author-bio" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-4 mt-2">
+                        ${editingAuthorId ? `<button type="button" onclick="cancelAuthorEdit()" class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded hover:bg-gray-100 transition-colors shadow-sm cursor-pointer">Abbrechen</button>` : ''}
+                        <button type="submit" class="px-8 py-3 bg-blue-700 text-white font-bold rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer">
+                            ${editingAuthorId ? 'Änderungen speichern' : 'Autor hinzufügen'}
                         </button>
                     </div>
-                    ${((hasAdminAccess() || img.uploader === currentUser) && !img.isDeleted) ? `
-                        <button onclick="event.stopPropagation(); deleteCommunityImage(${img.id})" class="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded hover:bg-red-700 shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" title="Bild löschen"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    ` : ''}
+                </form>
+
+                <h3 class="text-xl font-bold uppercase mb-4 border-b pb-2 flex items-center gap-2"><i data-lucide="users" class="text-gray-600"></i> Vorhandene Autoren</h3>
+                <div class="flex flex-col gap-3">
+                    ${getActiveAuthors().map(a => {
+                        const usedInArticles = articles.filter(art => art.author === a.name);
+                        const isUserLinked = String(a.id).startsWith('usr_');
+                        return `
+                            <div class="flex justify-between items-center bg-gray-50 p-4 rounded border border-gray-200">
+                                <div class="flex items-center gap-4">
+                                    ${a.imageUrl ? `
+                                        <img src="${a.imageUrl}" class="w-12 h-12 rounded-full object-cover border border-gray-300 shrink-0" onerror="this.outerHTML='${getStandardAvatarHtml('w-12 h-12', 'w-6 h-6').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
+                                    ` : getStandardAvatarHtml('w-12 h-12', 'w-6 h-6')}
+                                    <div>
+                                        <span class="font-bold text-lg text-blue-900">${a.name}</span>
+                                        <p class="text-xs text-gray-500">${usedInArticles.length} Artikel verfasst</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 items-center">
+                                    ${isUserLinked ? `
+                                        <span class="text-xs text-blue-800 bg-blue-100 px-2 py-1 rounded font-bold" title="Wird über das Benutzerprofil verwaltet">Benutzer-Account</span>
+                                    ` : `
+                                        <button onclick="editAuthor(${a.id})" class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-100 rounded transition-colors cursor-pointer" title="Bearbeiten"><i data-lucide="edit" class="w-5 h-5"></i></button>
+                                        <button onclick="deleteAuthor(${a.id})" class="text-red-500 hover:text-red-700 p-2 hover:bg-red-100 rounded transition-colors cursor-pointer" title="Löschen"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                    `}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
-            `;
-            }).join('')}
-        </div>`;
-    };
 
-    return `
-    <div class="max-w-6xl mx-auto mt-4 font-sans mb-16">
-        <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-bold text-sm mb-6 hover:underline cursor-pointer px-4 xl:px-0">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-        </button>
-        
-        <div class="px-4 xl:px-0 mb-8">
-            <h2 class="text-4xl md:text-5xl font-black uppercase font-serif mb-2 tracking-tighter">Tagesbilder</h2>
-            <p class="text-gray-600">Teile Momente aus Winterthur mit der Community. Bilder verschwinden automatisch nach exakt 24 Stunden.</p>
-        </div>
-
-        <div class="bg-white p-6 md:p-8 border border-gray-200 shadow-sm rounded-sm mb-12">
-            ${currentUser ? `
-                <h4 class="font-bold text-gray-800 mb-6 flex items-center gap-2 border-b pb-2"><i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i> Eigenes Bild teilen</h4>
-                <div class="flex flex-col md:flex-row gap-6">
-                    <div class="flex-1 bg-gray-50 p-5 border border-gray-200 rounded">
-                        <label class="block text-sm font-bold text-gray-700 mb-3"><i data-lucide="monitor-up" class="inline w-4 h-4 mr-1"></i> Vom PC hochladen</label>
-                        <input type="file" id="communityImgFile" accept="image/*" class="w-full text-sm bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-800 hover:file:bg-blue-200" />
-                    </div>
-                    <div class="flex items-center justify-center">
-                        <span class="text-gray-400 font-black uppercase text-xs tracking-wider bg-white px-2">ODER</span>
-                    </div>
-                    <div class="flex-1 bg-gray-50 p-5 border border-gray-200 rounded">
-                        <label class="block text-sm font-bold text-gray-700 mb-3"><i data-lucide="link" class="inline w-4 h-4 mr-1"></i> Bild-URL einfügen</label>
-                        <input type="url" id="communityImgUrl" placeholder="https://beispiel.de/bild.jpg" class="w-full text-sm bg-white border border-gray-300 rounded px-4 py-2.5 focus:border-blue-500 focus:outline-none" />
-                    </div>
-                </div>
-                <div class="mt-6 flex justify-end">
-                    <button onclick="handleCommunityUpload()" class="w-full md:w-auto bg-blue-900 text-white font-bold px-8 py-3 rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer flex justify-center items-center gap-2">
-                        Bild veröffentlichen <i data-lucide="send" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            ` : `
-                <div class="bg-blue-50 p-4 rounded border border-blue-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div class="flex items-center gap-3 text-blue-900">
-                        <i data-lucide="info" class="w-6 h-6"></i>
-                        <span class="text-sm font-bold">Logge dich ein, um eigene Bilder mit der Community zu teilen!</span>
-                    </div>
-                    <button onclick="showUserLogin()" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer">Anmelden</button>
-                </div>
-            `}
-        </div>
-
-        <div class="px-4 xl:px-0">
-            <h3 class="text-2xl font-black uppercase border-b-2 border-black pb-2 mb-6 inline-block">Heute</h3>
-            ${renderImageGrid(heuteImages)}
-
-            <h3 class="text-2xl font-black uppercase border-b-2 border-gray-400 text-gray-600 pb-2 mb-6 inline-block">Gestern</h3>
-            ${renderImageGrid(gesternImages)}
-        </div>
-    </div>`;
-}
-
-function renderFeedbackChat() {
-    const isAdmin = hasAdminAccess();
-    
-    return `
-    <div class="max-w-4xl mx-auto bg-white p-6 md:p-8 shadow-sm border border-gray-100 min-h-[70vh] font-sans flex flex-col mt-4 mb-16">
-        <div class="mb-6 border-b border-gray-200 pb-4">
-            <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-bold text-sm mb-4 hover:underline cursor-pointer">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-            </button>
-            <h2 class="text-3xl font-black uppercase flex items-center gap-3 text-gray-800">
-                <i data-lucide="message-square-plus" class="w-8 h-8 text-blue-600"></i> Website bewerten
-            </h2>
-            <p class="text-gray-600 mt-2">Wir entwickeln uns ständig weiter. Was gefällt dir an der Zeitung? Welche Funktionen fehlen dir noch?</p>
-        </div>
-        
-        <div class="flex-1 overflow-y-auto flex flex-col gap-4 mb-4 pr-2 bg-gray-50 p-4 rounded border border-gray-200" id="feedbackContainer" style="max-height: 50vh;">
-            ${siteFeedbacks.map(f => {
-                const isLiked = currentUser && f.likes && f.likes.includes(currentUser);
-                const isAuthor = currentUser === f.username;
-                const status = f.moderationStatus || 'approved';
-                
-                if (status !== 'approved' && !isAuthor && !isAdmin) return '';
-
-                let modBadge = '';
-                if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
-
+            ` : adminTab === 'articles' ? (() => {
+                let defaultAuth = 'Redaktion';
+                if (editingArticleId) {
+                    const editingArt = articles.find(a => a.id === editingArticleId);
+                    if (editingArt) defaultAuth = editingArt.author;
+                } else if (currentUser) {
+                    defaultAuth = getDisplayName(currentUser);
+                }
                 return `
-                <div class="flex gap-3 ${f.username === currentUser ? 'flex-row-reverse' : ''}">
-                    ${getUserAvatar(f.username, 'w-8 h-8', 'w-4 h-4', true)}
-                    <div class="max-w-[85%] rounded-lg p-3 ${f.username === currentUser ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border border-gray-300 text-gray-800 rounded-tl-none'} shadow-sm ${status === 'pending' ? 'border-orange-400 opacity-90' : ''}">
-                        <div class="flex items-center gap-2 mb-1 ${f.username === currentUser ? 'justify-end' : ''} flex-wrap">
-                            <span class="font-bold text-xs ${f.username === currentUser ? 'text-blue-200' : 'text-blue-900'}">${getDisplayName(f.username)}</span>
-                            ${modBadge}
-                            <span class="text-[10px] ${f.username === currentUser ? 'text-blue-300' : 'text-gray-400'}">${new Date(f.timestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}</span>
+                <h3 class="text-xl font-bold uppercase mb-6 flex items-center gap-2 border-b pb-2">
+                    <i data-lucide="${editingArticleId ? 'edit' : 'plus-circle'}" class="text-blue-600"></i> 
+                    ${editingArticleId ? 'Artikel bearbeiten' : 'Neuen Artikel verfassen'}
+                </h3>
+                <form onsubmit="handleCreateArticle(event)" class="flex flex-col gap-6 font-sans">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold mb-2 text-gray-700">Überschrift (Title)</label>
+                            <input required type="text" id="new-title" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500" />
                         </div>
-                        <p class="text-sm leading-relaxed">${f.text}</p>
-                        
-                        <div class="mt-2 flex flex-col md:flex-row items-center justify-between border-t ${f.username === currentUser ? 'border-blue-500/50' : 'border-gray-100'} pt-1.5 gap-2">
-                            <button onclick="toggleFeedbackLike(${f.id})" class="flex items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer ${isLiked ? (f.username === currentUser ? 'text-white' : 'text-red-500') : (f.username === currentUser ? 'text-blue-200 hover:text-white' : 'text-gray-400 hover:text-red-500')}">
-                                <i data-lucide="heart" class="w-3 h-3 ${isLiked ? 'fill-current' : ''}"></i> ${f.likes ? f.likes.length : 0} Likes
-                            </button>
-                            
-                            <div class="flex items-center gap-2">
-                                ${isAdmin || f.username === currentUser ? `
-                                    <button onclick="deleteFeedback(${f.id})" class="text-[10px] transition-colors cursor-pointer flex items-center gap-1 ${f.username === currentUser ? 'text-blue-200 hover:text-white' : 'text-gray-400 hover:text-red-500'}">
-                                        <i data-lucide="trash-2" class="w-3 h-3"></i> Löschen
-                                    </button>
-                                ` : ''}
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-700">Ressort (Kategorie)</label>
+                                <select required id="new-category" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500">
+                                    <option value="">Wählen...</option>
+                                    ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-700">Autor</label>
+                                <select required id="new-author" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500">
+                                    ${getActiveAuthors().map(a => `<option value="${a.name}" ${a.name === defaultAuth ? 'selected' : ''}>${a.name}</option>`).join('')}
+                                </select>
                             </div>
                         </div>
                     </div>
-                </div>
-                `;
-            }).join('')}
-            ${siteFeedbacks.length === 0 ? '<p class="text-center text-gray-500 text-sm py-8 italic">Noch kein Feedback vorhanden. Sei der Erste!</p>' : ''}
-        </div>
-        
-        ${currentUser ? `
-        <div class="pt-4 border-t border-gray-200 flex flex-col md:flex-row gap-2">
-            <input type="text" id="feedbackInput" placeholder="Dein Feedback oder Verbesserungsvorschlag schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') sendFeedback()" />
-            <button onclick="sendFeedback()" class="bg-blue-900 text-white px-6 py-2.5 rounded font-bold hover:bg-blue-800 transition-colors text-sm flex justify-center items-center gap-2 cursor-pointer shadow-sm">
-                Senden <i data-lucide="send" class="w-4 h-4"></i>
-            </button>
-        </div>
-        ` : `
-        <div class="pt-4 border-t border-gray-200 flex flex-col items-center justify-center bg-blue-50 p-6 rounded mt-2 border border-blue-100">
-            <p class="text-gray-700 font-bold mb-3 text-center">Möchtest du uns auch bewerten oder einen Vorschlag machen?</p>
-            <button onclick="pendingView='feedback'; showUserLogin()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm shadow-sm">Jetzt einloggen</button>
-        </div>
-        `}
-    </div>
-    `;
-}
-
-function renderHome() {
-    if (articles.length === 0) return '<div>Keine Artikel vorhanden.</div>';
-    
-    const now = new Date();
-    const currentArticles = hasAuthorAccess() ? articles : articles.filter(a => !a.autoDeleteDate || new Date(a.autoDeleteDate) > now);
-
-    if (currentArticles.length === 0) return '<div class="text-center py-12 text-gray-500 font-sans">Derzeit gibt es keine sichtbaren Artikel.</div>';
-    
-    const topStory = currentArticles[0];
-    const mainArticles = currentArticles.slice(1, 4);
-    const trendingArticles = [...currentArticles].sort((a, b) => b.views.length - a.views.length).slice(0, 5);
-
-    let html = `<div class="grid grid-cols-1 lg:grid-cols-12 gap-8"><div class="lg:col-span-8 flex flex-col gap-8">`;
-
-    if (topStory) {
-        const isLiked = currentUser && topStory.likes.includes(currentUser);
-        const isEilmeldung = topStory.isEilmeldung && ((new Date() - new Date(topStory.timestamp)) / 3600000 <= 24);
-        const displayImage = topStory.imageUrl || getFallbackImage(topStory.category);
-        
-        html += `
-        <article onclick="openArticle(${topStory.id})" class="group cursor-pointer">
-            <div class="relative overflow-hidden mb-4 rounded-sm">
-                <img src="${displayImage}" alt="${topStory.title}" class="w-full h-64 sm:h-80 md:h-[400px] object-cover group-hover:scale-105 transition-transform duration-500" />
-                ${isEilmeldung ? '<div class="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold uppercase px-2 py-1 font-sans shadow-md animate-pulse">Eilmeldung</div>' : ''}
-            </div>
-            <div class="flex flex-col gap-2">
-                <span class="text-blue-700 font-bold text-sm uppercase font-sans tracking-wide flex justify-between">
-                    ${topStory.category}
-                    <span class="flex items-center gap-3 text-gray-500">
-                        <span class="flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> ${topStory.views.length}</span>
-                        <span class="flex items-center gap-1 text-red-500"><i data-lucide="heart" class="w-4 h-4 ${isLiked ? 'fill-current' : ''}"></i> ${topStory.likes.length}</span>
-                    </span>
-                </span>
-                <h2 class="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight group-hover:text-blue-700 transition-colors">${topStory.title}</h2>
-                <p class="text-lg text-gray-700 leading-relaxed mt-2">${topStory.summary}</p>
-                <div class="text-sm text-gray-500 font-sans mt-2 flex items-center gap-2">
-                    <span class="font-semibold text-gray-900">${topStory.author}</span>
-                    <span>•</span>
-                    <span class="time-ago-display" data-timestamp="${topStory.timestamp}">${getTimeAgo(topStory.timestamp)}</span>
-                </div>
-            </div>
-        </article>
-        <hr class="border-gray-300" />
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">`;
-    }
-
-    mainArticles.forEach(article => {
-        const isLiked = currentUser && article.likes.includes(currentUser);
-        const isEilmeldung = article.isEilmeldung && ((new Date() - new Date(article.timestamp)) / 3600000 <= 24);
-        const displayImage = article.imageUrl || getFallbackImage(article.category);
-        
-        html += `
-        <article onclick="openArticle(${article.id})" class="group cursor-pointer flex flex-col gap-3">
-            <div class="relative overflow-hidden h-48 rounded-sm">
-                <img src="${displayImage}" alt="${article.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                ${isEilmeldung ? '<div class="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shadow-sm">Eilmeldung</div>' : ''}
-            </div>
-            <span class="text-blue-700 font-bold text-xs uppercase font-sans flex justify-between">
-                ${article.category}
-                <span class="flex items-center gap-2 text-gray-400">
-                    <span class="flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> ${article.views.length}</span>
-                    <span class="flex items-center gap-1 text-red-400"><i data-lucide="heart" class="w-3 h-3 ${isLiked ? 'fill-current' : ''}"></i> ${article.likes.length}</span>
-                </span>
-            </span>
-            <h3 class="text-xl font-bold leading-snug group-hover:text-blue-700 transition-colors">${article.title}</h3>
-            <p class="text-sm text-gray-600 line-clamp-3">${article.summary}</p>
-        </article>`;
-    });
-
-    html += `</div></div>`;
-
-    html += `
-    <aside class="lg:col-span-4 flex flex-col gap-8">
-        <div onclick="setView('gallery'); window.scrollTo(0,0);" class="bg-gradient-to-br from-green-50 to-green-100 p-6 border border-green-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow group relative overflow-hidden rounded-sm">
-            <i data-lucide="camera" class="w-16 h-16 text-green-200 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform"></i>
-            <h3 class="text-xl font-black uppercase mb-2 text-green-900 flex items-center gap-2">Tagesbilder</h3>
-            <p class="text-sm text-green-800 mb-4 relative z-10 font-sans">Entdecke die neuesten Bilder aus unserer Community von heute!</p>
-            <span class="text-sm font-bold text-green-700 flex items-center gap-1 group-hover:text-green-900 transition-colors relative z-10">Zur Galerie <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
-        </div>
-
-        <div class="bg-white p-6 border border-gray-200 shadow-sm">
-            <h3 class="text-xl font-black uppercase mb-4 pb-2 border-b-2 border-black font-sans flex items-center gap-2">
-                <span class="w-3 h-3 bg-red-600 rounded-full inline-block animate-pulse"></span>
-                Meistgelesen
-            </h3>
-            <ul class="flex flex-col gap-4">
-                ${trendingArticles.map((story, i) => `
-                    <li onclick="openArticle(${story.id})" class="flex gap-4 group cursor-pointer">
-                        <span class="text-3xl font-black text-gray-200 group-hover:text-blue-600 transition-colors font-sans">${i + 1}</span>
-                        <h4 class="meistgelesen-item font-bold text-base group-hover:text-blue-600 transition-colors mt-1 line-clamp-2">${story.title}</h4>
-                    </li>
-                `).join('')}
-            </ul>
-        </div>
-    </aside></div>`;
-
-    return html;
-}
-
-function renderArticle() {
-    const article = articles.find(a => a.id === selectedArticleId);
-    if (!article) return '';
-    
-    if (!hasAuthorAccess() && article.autoDeleteDate && new Date(article.autoDeleteDate) <= new Date()) {
-        return `
-        <div class="max-w-4xl mx-auto bg-white p-12 mt-8 shadow-sm border border-gray-100 text-center font-sans">
-            <button onclick="setView('home')" class="flex items-center justify-center gap-2 text-blue-600 font-bold text-sm mb-6 hover:underline cursor-pointer mx-auto">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-            </button>
-            <i data-lucide="clock" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
-            <h2 class="text-2xl font-black text-gray-700 mb-2">Artikel nicht mehr verfügbar</h2>
-            <p class="text-gray-500">Das Löschungsdatum dieses Artikels ist abgelaufen. Er wurde in das Archiv verschoben.</p>
-        </div>`;
-    }
-
-    const isLiked = currentUser && article.likes.includes(currentUser);
-    const isAdmin = hasAdminAccess();
-    const activeComments = isAdmin ? article.comments : article.comments.filter(c => !c.isDeleted || c.username === currentUser);
-    const authorData = getActiveAuthors().find(a => a.name === article.author);
-    const user = currentUser ? registeredUsers.find(u => u.username === currentUser) : null;
-    if (user) ensureUserSubscriptions(user);
-    const safeCategoryJs = (article.category || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const safeAuthorJs = (article.author || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const isCatSubscribed = !!(user && (user.subscriptions.categories || []).includes((article.category || '').trim()));
-    const isAuthorSubscribed = !!(user && (user.subscriptions.authors || []).includes((article.author || '').trim()));
-    
-    const displayImage = article.imageUrl || getFallbackImage(article.category);
-
-    return `
-    <article class="max-w-4xl mx-auto bg-white p-6 md:p-12 shadow-sm border border-gray-100">
-        <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-8 hover:underline cursor-pointer">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-        </button>
-        <div class="flex items-center gap-3">
-            <span class="text-blue-700 font-bold text-sm uppercase font-sans tracking-wide cursor-pointer hover:underline" onclick="executeSearchCategory('${article.category}')">${article.category}</span>
-            ${currentUser ? `
-                <button onclick="toggleCategorySubscription('${safeCategoryJs}')" class="text-xs font-bold px-3 py-1 rounded-full border ${isCatSubscribed ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'} transition-colors cursor-pointer flex items-center gap-2" title="Kategorie abonnieren/abbestellen">
-                    <i data-lucide="bell" class="w-4 h-4"></i>
-                    ${isCatSubscribed ? 'Abo aktiv' : 'Abonnieren'}
-                </button>
-            ` : ''}
-        </div>
-        <h1 class="text-3xl sm:text-4xl md:text-6xl font-bold leading-tight mt-4 mb-6">${article.title}</h1>
-        
-        <div class="flex flex-wrap items-center justify-between border-y border-gray-200 py-4 mb-8 font-sans text-sm text-gray-600">
-            <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors" onclick="setView('authors'); window.scrollTo(0,0);" title="Mehr über den Autor erfahren">
-                ${authorData && authorData.imageUrl ? `
-                    <img src="${authorData.imageUrl}" class="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0" onerror="this.outerHTML='${getStandardAvatarHtml('w-8 h-8', 'w-4 h-4').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
-                ` : getStandardAvatarHtml('w-8 h-8', 'w-4 h-4')}
-                <div>
-                    <span class="font-bold text-gray-900 block">${article.author}</span>
-                    <span class="text-xs text-gray-500 time-ago-display" data-timestamp="${article.timestamp}">${getTimeAgo(article.timestamp)}</span>
-                </div>
-                ${currentUser ? `
-                    <button onclick="event.stopPropagation(); toggleAuthorSubscription('${safeAuthorJs}')" class="ml-2 text-xs font-bold px-3 py-1 rounded-full border ${isAuthorSubscribed ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'} transition-colors cursor-pointer flex items-center gap-2" title="Autor abonnieren/abbestellen">
-                        <i data-lucide="bell" class="w-4 h-4"></i>
-                        ${isAuthorSubscribed ? 'Abo aktiv' : 'Abonnieren'}
-                    </button>
-                ` : ''}
-            </div>
-            <div class="flex items-center gap-6 mt-4 sm:mt-0">
-                <span class="flex items-center gap-2" title="Aufrufe">
-                    <i data-lucide="eye" class="w-5 h-5 text-gray-400"></i>
-                    <span class="font-bold">${article.views.length}</span>
-                </span>
-                <button onclick="toggleLike(${article.id})" class="flex items-center gap-2 px-3 py-1 rounded-full transition-colors border cursor-pointer ${isLiked ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-200 hover:bg-gray-50'}">
-                    <i data-lucide="heart" class="w-5 h-5 ${isLiked ? 'fill-current text-red-500' : 'text-gray-400'}"></i>
-                    <span class="font-bold">${article.likes.length} Likes</span>
-                </button>
-            </div>
-        </div>
-
-        <p class="text-xl md:text-2xl font-bold text-gray-800 leading-relaxed mb-8">${article.summary}</p>
-        <img src="${displayImage}" alt="Artikelbild" class="w-full h-auto max-h-[400px] md:max-h-[600px] object-cover mb-8 rounded-sm" />
-        
-        <div class="prose prose-lg max-w-none text-gray-800 leading-relaxed text-lg whitespace-pre-wrap">${article.content || "Kein weiterer Text verfügbar."}</div>
-        
-        ${article.sources && article.sources.length > 0 ? `
-        <div class="mt-12 p-6 bg-gray-50 border border-gray-200 rounded-sm font-sans">
-            <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="link" class="w-5 h-5 text-blue-600"></i> Quellen & Weiterführende Links</h4>
-            <ul class="flex flex-col gap-2">
-                ${article.sources.map(src => `
-                    <li><a href="${src}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm break-all"><i data-lucide="external-link" class="w-3 h-3"></i> ${src}</a></li>
-                `).join('')}
-            </ul>
-        </div>
-        ` : ''}
-
-        <div class="mt-16 pt-8 border-t border-gray-200 font-sans">
-            <h3 class="text-2xl font-black mb-6">Kommentare (${activeComments.length})</h3>
-            
-            <div class="flex flex-col gap-6 mb-8">
-                ${activeComments.length === 0 ? '<p class="text-gray-500 italic">Noch keine Kommentare vorhanden. Sei der Erste!</p>' : ''}
-                
-                ${activeComments.map(c => {
-                    const isCommentLiked = currentUser && c.likes.includes(currentUser);
-                    const hasReported = currentUser && c.reportedBy && c.reportedBy.includes(currentUser);
-                    const isAuthor = currentUser === c.username;
-                    const status = c.moderationStatus || 'approved';
                     
-                    if (status !== 'approved' && !isAuthor && !isAdmin) return '';
+                    <div class="flex items-center gap-3 bg-red-50 p-4 rounded border border-red-200">
+                        <input type="checkbox" id="new-eilmeldung" class="w-5 h-5 cursor-pointer text-red-600 rounded" />
+                        <label for="new-eilmeldung" class="font-bold text-red-800 cursor-pointer flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5"></i> Als Eilmeldung markieren (verschwindet automatisch nach 24h)
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Zusammenfassung (Teaser)</label>
+                        <textarea required rows="2" id="new-summary" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Bild (Optional, falls leer wird ein passendes Platzhalterbild ergänzt)</label>
+                        <div class="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-300 rounded">
+                            <div>
+                                <label class="text-xs text-gray-500 font-bold uppercase mb-1 block">Vom PC hochladen</label>
+                                <input type="file" id="new-image-file" accept="image/*" class="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500 cursor-pointer" />
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <hr class="flex-1 border-gray-300"><span class="text-xs text-gray-400 font-bold uppercase">oder</span><hr class="flex-1 border-gray-300">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 font-bold uppercase mb-1 block">Bild-URL eingeben</label>
+                                <input type="url" id="new-image-url" class="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500" placeholder="https://..." />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Automatisches Löschdatum (Optional)</label>
+                        <input type="datetime-local" id="new-autodelete" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500" />
+                        <p class="text-xs text-gray-500 mt-1">Nach diesem Datum wird der Artikel für Leser automatisch ausgeblendet.</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Vollständiger Artikeltext</label>
+                        <textarea required rows="6" id="new-content" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500 font-serif text-lg"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Quellen-Links (Optional)</label>
+                        <input type="text" id="new-sources" class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:outline-none focus:border-blue-500" placeholder="https://quelle1.ch, https://quelle2.ch (mit Komma trennen)" />
+                    </div>
 
-                    let modBadge = '';
-                    if (status === 'pending') modBadge = '<span class="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold ml-2">Wartet auf Freigabe</span>';
-                    else if (status === 'rejected') modBadge = '<span class="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold ml-2">Abgelehnt</span>';
+                    <div class="flex justify-end gap-4 mt-2">
+                        ${editingArticleId ? `<button type="button" onclick="cancelEdit()" class="px-6 py-3 border border-gray-300 text-gray-700 font-bold rounded hover:bg-gray-100 transition-colors shadow-sm cursor-pointer">Abbrechen</button>` : ''}
+                        <button type="submit" class="px-8 py-3 bg-blue-700 text-white font-bold rounded hover:bg-blue-800 transition-colors shadow-sm cursor-pointer">
+                            ${editingArticleId ? 'Änderungen speichern' : 'Artikel veröffentlichen'}
+                        </button>
+                    </div>
+                </form>
 
-                    return `
-                    <div class="bg-gray-50 p-4 rounded border border-gray-100 relative ${c.isDeleted || status === 'pending' ? 'opacity-70 bg-orange-50' : ''}">
-                        ${c.isDeleted ? `<div class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded">${isAdmin ? 'Gelöscht' : 'Gelöscht (Nur für dich sichtbar)'}</div>` : ''}
-                        
-                        <div class="flex gap-4">
-                            ${getUserAvatar(c.username, 'w-10 h-10', 'w-5 h-5', true)}
-                            <div class="flex-1">
-                                <div class="flex flex-wrap gap-2 items-center mb-1">
-                                    <span class="font-bold text-blue-900">${getDisplayName(c.username)}</span>
-                                    ${modBadge}
-                                    <span class="text-xs text-gray-400 ml-auto time-ago-display" data-timestamp="${c.timestamp}">${getTimeAgo(c.timestamp)}</span>
+                <div class="mt-12 border-t pt-8">
+                    <h3 class="text-xl font-bold uppercase mb-6 flex items-center gap-2"><i data-lucide="file-text" class="text-gray-600"></i> Vorhandene Artikel</h3>
+                    <div class="flex flex-wrap gap-4 mb-6">
+                        <button onclick="exportArticles()" class="bg-green-700 text-white px-4 py-2 rounded font-bold hover:bg-green-600 flex items-center gap-2 cursor-pointer shadow-sm"><i data-lucide="download" class="w-4 h-4"></i> Exportieren (.txt)</button>
+                        <label class="bg-purple-700 text-white px-4 py-2 rounded font-bold hover:bg-purple-600 flex items-center gap-2 cursor-pointer shadow-sm">
+                            <i data-lucide="upload" class="w-4 h-4"></i> Importieren (.txt)
+                            <input type="file" accept=".txt" class="hidden" onchange="importArticles(event)" />
+                        </label>
+                    </div>
+                    <div class="flex flex-col gap-4">
+                        ${articles.length === 0 ? '<p class="text-gray-500 italic">Keine Artikel vorhanden.</p>' : ''}
+                        ${articles.map(a => {
+                            const isExpired = a.autoDeleteDate && new Date(a.autoDeleteDate) <= new Date();
+                            return `
+                            <div class="flex justify-between items-center bg-gray-50 p-4 rounded border border-gray-200 ${isExpired ? 'opacity-60' : ''}">
+                                <div class="flex-1 pr-4">
+                                    <span class="text-xs font-bold text-gray-500 uppercase">${a.category}</span>
+                                    ${a.autoDeleteDate ? `<span class="ml-2 text-[10px] px-2 py-0.5 rounded ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'} font-bold uppercase" title="Automatisches Löschdatum">Ablauf: ${new Date(a.autoDeleteDate).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'})}</span>` : ''}
+                                    <h4 class="font-bold text-lg leading-tight mt-1 line-clamp-1">${a.title}</h4>
                                 </div>
-                                <p class="text-gray-800 leading-relaxed mb-3">${c.text}</p>
+                                <div class="flex gap-2">
+                                    <button onclick="editArticle(${a.id})" class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-100 rounded transition-colors cursor-pointer" title="Artikel bearbeiten"><i data-lucide="edit" class="w-5 h-5"></i></button>
+                                    <button onclick="deleteArticle(${a.id})" class="text-red-500 hover:text-red-700 p-2 hover:bg-red-100 rounded transition-colors cursor-pointer" title="Artikel löschen"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                </div>
+                            </div>
+                        `;
+                        }).join('')}
+                    </div>
+                </div>
+
+            `; })() : adminTab === 'users' && hasAdminAccess() ? `
+                <div class="flex justify-between items-center border-b pb-4 mb-6">
+                    <h3 class="text-xl font-bold uppercase flex items-center gap-2"><i data-lucide="users" class="text-blue-600"></i> Registrierte Benutzer (${registeredUsers.length})</h3>
+                    <button onclick="exportUsers()" class="bg-blue-700 text-white px-4 py-2 rounded font-bold hover:bg-blue-600 flex items-center gap-2 cursor-pointer shadow-sm text-sm"><i data-lucide="download" class="w-4 h-4"></i> Liste exportieren</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${registeredUsers.length === 0 ? '<p class="text-gray-500 italic">Noch keine Benutzer registriert.</p>' : ''}
+                    ${registeredUsers.map(u => `
+                        <div class="border ${u.isBanned || u.isDeleted ? 'border-red-300 bg-red-50' : 'border-gray-200'} rounded p-4 flex flex-col sm:flex-row gap-4 relative">
+                            <div class="absolute top-2 right-2 flex gap-1">
+                                ${u.isDeleted ? '<span class="bg-gray-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase">Gelöscht</span>' : ''}
+                                ${u.isBanned ? '<span class="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase">Gesperrt</span>' : ''}
+                            </div>
+                            <div class="relative shrink-0">
+                                ${getUserAvatar(u.username, 'w-12 h-12', 'w-6 h-6', false)}
+                                <span class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase bg-blue-100 text-blue-800 px-1 rounded border border-blue-200">${u.role}</span>
+                            </div>
+                            <div class="flex-1 mt-2 sm:mt-0">
+                                <h4 class="font-bold text-lg text-blue-900">${u.username}</h4>
+                                <p class="text-sm text-gray-600 mb-2">
+                                    ${u.firstName || u.lastName ? `${u.firstName} ${u.lastName}` : '<span class="italic text-gray-400">Kein Name hinterlegt</span>'} 
+                                    | ${u.email || '<span class="italic text-gray-400">Keine E-Mail</span>'}
+                                </p>
+                                <button onclick="viewUserDetails('${u.username}')" class="mt-2 bg-blue-50 border border-blue-200 text-blue-800 text-sm font-bold px-4 py-2 rounded hover:bg-blue-100 transition-colors w-full sm:w-auto">Verwalten</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+            ` : adminTab === 'userDetails' && adminSelectedUser && hasAdminAccess() ? `
+                ${(() => {
+                    const u = registeredUsers.find(user => user.username === adminSelectedUser);
+                    if(!u) return '<p>Benutzer nicht gefunden.</p>';
+                    
+                    const userComments = [];
+                    articles.forEach(a => {
+                        a.comments.forEach(c => {
+                            if(c.username === u.username) userComments.push({...c, articleTitle: a.title, articleId: a.id});
+                        });
+                    });
+                    userComments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    
+                    const liked = articles.filter(a => a.likes.includes(u.username));
+                    const viewed = articles.filter(a => a.views.includes(u.username));
+                    
+                    return `
+                        <div class="mb-6">
+                            <button onclick="adminTab='users'; renderApp()" class="text-blue-600 hover:underline flex items-center gap-1 font-bold"><i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Benutzerliste</button>
+                        </div>
+                        <div class="bg-gray-50 p-6 rounded border border-gray-200 mb-8 flex flex-col md:flex-row gap-6 items-start">
+                            ${getUserAvatar(u.username, 'w-24 h-24', 'w-12 h-12', true)}
+                            <div class="flex-1">
+                                <h3 class="text-2xl font-black text-blue-900 mb-1">${u.username} ${u.isBanned ? '<span class="text-sm bg-red-600 text-white px-2 py-1 rounded ml-2 align-middle">GESPERRT</span>' : ''} ${u.isDeleted ? '<span class="text-sm bg-gray-600 text-white px-2 py-1 rounded ml-2 align-middle">GELÖSCHT</span>' : ''}</h3>
+                                <p class="text-gray-700 mt-1"><span class="font-bold">Echter Name:</span> ${u.firstName || '-'} ${u.lastName || '-'}</p>
+                                <p class="text-gray-700"><span class="font-bold">E-Mail:</span> ${u.email || '-'}</p>
+                                <p class="text-gray-700"><span class="font-bold">Anzeige-Modus:</span> ${u.showRealName ? 'Zeigt echten Namen' : 'Zeigt Benutzernamen'}</p>
                                 
-                                <div class="flex flex-wrap gap-4 items-center text-sm">
-                                    <button onclick="toggleCommentLike(${article.id}, ${c.id})" class="flex items-center gap-1 ${isCommentLiked ? 'text-red-500 font-bold' : 'text-gray-500 hover:text-gray-800'} transition-colors cursor-pointer">
-                                        <i data-lucide="heart" class="w-4 h-4 ${isCommentLiked ? 'fill-current' : ''}"></i> ${c.likes.length}
+                                <p class="text-gray-700 mt-2 flex items-center gap-2">
+                                    <span class="font-bold">Rolle ändern:</span>
+                                    <select onchange="changeUserRole('${u.username}', this.value)" class="border border-gray-300 rounded px-2 py-1 text-sm bg-white cursor-pointer font-bold focus:outline-none focus:border-blue-500">
+                                        <option value="user" ${u.role === 'user' ? 'selected' : ''}>Benutzer</option>
+                                        <option value="author" ${u.role === 'author' ? 'selected' : ''}>Autor</option>
+                                        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                    </select>
+                                </p>
+
+                                <p class="text-gray-700 mt-2"><span class="font-bold">Passwort:</span> <span class="bg-gray-200 px-2 py-0.5 rounded font-mono text-sm">Firebase Auth</span> <span class="text-[10px] text-gray-500 ml-2 uppercase font-bold">(nicht in der App gespeichert)</span></p>
+                                
+                                ${u.bio ? `<p class="text-sm bg-white border border-gray-200 p-3 rounded text-gray-700 mt-3 italic">"${u.bio}"</p>` : ''}
+                                
+                                <div class="mt-4 flex flex-wrap gap-3">
+                                    <button onclick="toggleUserBan('${u.username}')" class="${u.isBanned ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-500 hover:bg-orange-600'} text-white font-bold py-2 px-4 rounded text-sm transition-colors cursor-pointer flex items-center gap-2">
+                                        <i data-lucide="${u.isBanned ? 'check-circle' : 'ban'}" class="w-4 h-4"></i>
+                                        ${u.isBanned ? 'Account entsperren' : 'Account sperren'}
                                     </button>
-                                    
-                                    ${!c.isDeleted && status === 'approved' && !isAuthor && !isAdmin ? `
-                                        <button onclick="reportComment(${article.id}, ${c.id})" class="flex items-center gap-1 ${hasReported ? 'text-orange-500 font-bold' : 'text-gray-400 hover:text-orange-500'} transition-colors cursor-pointer" title="${hasReported ? 'Du hast diesen Kommentar gemeldet' : 'Kommentar an Moderation melden'}">
-                                            <i data-lucide="flag" class="w-4 h-4 ${hasReported ? 'fill-current' : ''}"></i> Melden
+                                    <button onclick="toggleUserDeleted('${u.username}')" class="${u.isDeleted ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white font-bold py-2 px-4 rounded text-sm transition-colors cursor-pointer flex items-center gap-2">
+                                        <i data-lucide="${u.isDeleted ? 'check-circle' : 'trash-2'}" class="w-4 h-4"></i>
+                                        ${u.isDeleted ? 'Account wiederherstellen' : 'Account löschen'}
+                                    </button>
+                                    ${u.isDeleted ? `
+                                    <button onclick="permanentlyDeleteUser('${u.username}')" class="bg-red-900 hover:bg-red-950 text-white font-bold py-2 px-4 rounded text-sm transition-colors cursor-pointer flex items-center gap-2">
+                                        <i data-lucide="user-x" class="w-4 h-4"></i>
+                                        Endgültig löschen
+                                    </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            <div class="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                                <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700 border-b pb-2"><i data-lucide="heart" class="w-5 h-5 text-red-500"></i> Gelikte Artikel (${liked.length})</h4>
+                                <ul class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-2">
+                                    ${liked.length === 0 ? '<li class="text-gray-500 text-sm">Keine</li>' : liked.map(a => `<li><button onclick="openArticle(${a.id})" class="text-left text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>`).join('')}
+                                </ul>
+                            </div>
+                            <div class="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                                <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700 border-b pb-2"><i data-lucide="eye" class="w-5 h-5 text-blue-500"></i> Gelesene Artikel (${viewed.length})</h4>
+                                <ul class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-2">
+                                    ${viewed.length === 0 ? '<li class="text-gray-500 text-sm">Keine</li>' : viewed.map(a => `<li><button onclick="openArticle(${a.id})" class="text-left text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                            <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700 border-b pb-2"><i data-lucide="message-square" class="w-5 h-5 text-blue-600"></i> Kommentare des Nutzers (${userComments.length})</h4>
+                            <div class="flex flex-col gap-4">
+                                ${userComments.length === 0 ? '<p class="text-gray-500 text-sm">Keine Kommentare</p>' : userComments.map(c => `
+                                    <div class="bg-gray-50 p-3 rounded border border-gray-100">
+                                        <div class="flex justify-between items-start mb-1">
+                                            <span class="text-xs text-gray-500">zu Artikel: <button onclick="openArticle(${c.articleId})" class="font-bold text-blue-600 hover:underline">${c.articleTitle}</button></span>
+                                            <span class="text-xs text-gray-400">${new Date(c.timestamp).toLocaleString('de-DE')}</span>
+                                        </div>
+                                        <p class="text-gray-800 text-sm mt-1">${c.text}</p>
+                                        ${c.isDeleted ? '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold mt-2 inline-block">Gelöscht</span>' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                })()}
+
+            ` : adminTab === 'support' && hasAdminAccess() ? `
+                
+                <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="help-circle" class="text-blue-600"></i> Support-Anfragen</h3>
+                
+                <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[600px] min-h-[500px]">
+                    <div class="w-full md:w-1/3 border border-gray-200 rounded bg-white overflow-y-auto max-h-[300px] md:max-h-full">
+                        ${visibleChats.length === 0 ? '<p class="p-4 text-gray-500 italic text-sm">Keine Support-Anfragen vorhanden.</p>' : visibleChats.map(c => {
+                            const lastMsg = c.messages[c.messages.length - 1];
+                            const isSelected = adminSelectedChatId === c.id;
+                            const isUnread = lastMsg && lastMsg.sender === 'user';
+                            
+                            const user = registeredUsers.find(u => u.username === c.userId);
+                            const isBanned = user ? user.isBanned : false;
+                            
+                            return `
+                                <div onclick="adminSelectedChatId = ${c.id}; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <span class="font-bold text-sm ${isUnread ? 'text-blue-900' : 'text-gray-700'} truncate flex items-center gap-1" title="${c.userId}">
+                                            ${c.userId.length > 15 ? c.userId.substring(0, 15) + '...' : c.userId}
+                                            ${isBanned ? '<span class="bg-red-600 text-white text-[8px] px-1 rounded uppercase" title="Account gesperrt">Gesperrt</span>' : ''}
+                                        </span>
+                                        <span class="text-[10px] text-gray-400 mr-3">${lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 truncate pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? lastMsg.text : 'Neuer Chat'}</p>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <div class="w-full md:w-2/3 border border-gray-200 rounded bg-gray-50 flex flex-col relative min-h-[400px] md:min-h-0">
+                        ${!adminSelectedChatId ? `
+                            <div class="flex-1 flex items-center justify-center text-gray-400 flex-col gap-2">
+                                <i data-lucide="message-square" class="w-12 h-12 opacity-50"></i>
+                                <p>Wähle einen Chat aus der Liste aus.</p>
+                            </div>
+                        ` : (() => {
+                            const chat = supportChats.find(c => c.id === adminSelectedChatId);
+                            if(!chat) return '<p class="p-4">Chat nicht gefunden.</p>';
+                            
+                            const user = registeredUsers.find(u => u.username === chat.userId);
+                            const isBanned = user ? user.isBanned : false;
+                            
+                            return `
+                                <div class="bg-white p-4 border-b border-gray-200 flex flex-wrap justify-between items-center gap-3 shadow-sm z-10">
+                                    <h4 ${user ? `onclick="viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-blue-900 flex items-center gap-2 ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
+                                        ${user ? getUserAvatar(chat.userId, 'w-6 h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-5 h-5"></i>'}
+                                        Chat mit ${chat.userId}
+                                        ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
+                                        ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
+                                    </h4>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button onclick="toggleChatAi('${chat.id}')"
+                                            title="${chat.aiEnabled !== false ? 'KI deaktivieren' : 'KI aktivieren'}"
+                                            class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer
+                                            ${chat.aiEnabled !== false
+                                                ? 'bg-green-50 border-green-300 text-green-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                                                : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-300 hover:text-green-700'}">
+                                            <i data-lucide="${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3.5 h-3.5"></i>
+                                            <span class="hidden sm:inline">KI ${chat.aiEnabled !== false ? 'AN' : 'AUS'}</span>
                                         </button>
+                                        <button onclick="adminArchiveChat('${chat.id}')" class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border border-orange-300 bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors cursor-pointer" title="Chat für Admins ausblenden (Nutzer sieht ihn weiterhin bis 10 Tage)">
+                                            <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+                                            <span class="hidden xl:inline">Archivieren</span>
+                                        </button>
+                                        <button onclick="adminDeleteChat('${chat.id}')" class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer" title="Chat restlos aus der Datenbank löschen">
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            <span class="hidden xl:inline">Löschen</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
+                                    ${chat.messages.map((m, index) => `
+                                        <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
+                                            <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
+                                                <p class="text-sm">${m.text}</p>
+                                                <div class="flex justify-between items-center mt-1 gap-4">
+                                                    <span class="text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+                                    <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage(${chat.id})" />
+                                    <button onclick="adminReplySupportMessage(${chat.id})" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
+                                        Senden <i data-lucide="send" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            `;
+                        })()}
+                    </div>
+                </div>
+
+            ` : adminTab === 'backup' && hasAdminAccess() ? `
+                <!-- BACKUP TAB -->
+                <h3 class="text-xl font-bold uppercase mb-6 flex items-center gap-2 border-b pb-4"><i data-lucide="database" class="text-blue-600"></i> System-Backup</h3>
+                
+                <div class="bg-blue-50 p-4 rounded text-sm text-gray-700 flex items-start gap-3 mb-8 border border-blue-100">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0"></i>
+                    <p>Sichere den gesamten Stand der Zeitung in einer einzigen Datei. Diese kannst du später wieder hochladen, um alles exakt wiederherzustellen.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white p-8 border border-gray-200 shadow-sm rounded flex flex-col items-center text-center gap-4">
+                        <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2"><i data-lucide="download-cloud" class="w-8 h-8"></i></div>
+                        <h4 class="font-bold text-lg">Backup erstellen</h4>
+                        <button onclick="exportBackup()" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                            <i data-lucide="download" class="w-5 h-5"></i> Komplettes Backup exportieren
+                        </button>
+                    </div>
+                    <div class="bg-white p-8 border border-gray-200 shadow-sm rounded flex flex-col items-center text-center gap-4">
+                        <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mb-2"><i data-lucide="upload-cloud" class="w-8 h-8"></i></div>
+                        <h4 class="font-bold text-lg">Backup wiederherstellen</h4>
+                        <label class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                            <i data-lucide="upload" class="w-5 h-5"></i> Backup-Datei hochladen
+                            <input type="file" accept=".json,.txt" class="hidden" onchange="importBackup(event)" />
+                        </label>
+                    </div>
+                </div>
+
+            ` : adminTab === 'feedback' && hasAdminAccess() ? `
+                <!-- FEEDBACK TAB -->
+                <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="message-square-plus" class="text-blue-600"></i> Website-Bewertungen</h3>
+                
+                <div class="flex flex-col gap-4">
+                    ${siteFeedbacks.length === 0 ? '<p class="text-gray-500 italic">Noch keine Bewertungen abgegeben.</p>' : ''}
+                    ${[...siteFeedbacks].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(f => {
+                        const isPending = f.moderationStatus === 'pending';
+                        return `
+                        <div class="bg-white p-4 rounded border ${isPending ? 'border-orange-400 bg-orange-50' : 'border-gray-200'} shadow-sm">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-2">
+                                    ${getUserAvatar(f.username, 'w-6 h-6', 'w-3 h-3', false)}
+                                    <span class="font-bold text-blue-900">${f.username}</span>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    <span class="text-xs text-gray-500 flex items-center gap-2">
+                                        ${isPending ? '<span class="bg-orange-500 text-white px-2 py-0.5 rounded font-bold uppercase animate-pulse">Wartet auf Freigabe</span>' : ''}
+                                        ${new Date(f.timestamp).toLocaleString('de-DE')}
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-gray-800 leading-relaxed mb-3">${f.text}</p>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-500 flex items-center gap-1"><i data-lucide="heart" class="w-4 h-4"></i> ${f.likes ? f.likes.length : 0} Likes</span>
+                                
+                                <div class="flex flex-wrap gap-2 md:gap-4">
+                                    ${isPending ? `
+                                        <button onclick="adminApproveContent('feedback', ${f.id}, null)" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check" class="w-4 h-4"></i> Zulassen</button>
                                     ` : ''}
 
-                                    ${(isAuthor || isAdmin) ? (
-                                        c.isDeleted ? (
-                                            (isAdmin || c.deletedBy !== 'admin') ? `
-                                                <button onclick="restoreComment(${article.id}, ${c.id})" class="flex items-center gap-1 text-green-600 hover:text-green-700 font-bold transition-colors cursor-pointer">
-                                                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Wiederherstellen
-                                                </button>
-                                            ` : `<span class="text-red-500 text-[10px] font-bold flex items-center gap-1" title="Dieser Kommentar wurde von der Moderation gelöscht"><i data-lucide="shield-alert" class="w-3 h-3"></i> Vom Admin entfernt</span>`
-                                        ) : `
-                                            <button onclick="deleteComment(${article.id}, ${c.id})" class="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
-                                                <i data-lucide="trash-2" class="w-4 h-4"></i> Löschen
-                                            </button>
-                                        `
-                                    ) : ''}
+                                    <button onclick="adminRejectContent('feedback', ${f.id}, null)" class="text-red-500 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i> ${isPending ? 'Ablehnen & Löschen' : 'Löschen'}</button>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    `;
-                }).join('')}
-            </div>
-            
-            ${currentUser ? `
-                <div class="flex flex-col gap-3 bg-white border border-gray-200 p-4 rounded shadow-sm">
-                    <label class="font-bold text-sm text-gray-700 flex items-center gap-2">
-                        ${getUserAvatar(currentUser, 'w-6 h-6', 'w-3 h-3', false)}
-                        Dein Kommentar als <span class="text-blue-600">${getDisplayName(currentUser)}</span>
-                    </label>
-                    <textarea id="newCommentText" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" placeholder="Schreibe einen konstruktiven Kommentar..."></textarea>
-                    <button onclick="submitComment(${article.id})" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors self-start cursor-pointer">Kommentieren</button>
-                </div>
-            ` : `
-                <div class="bg-blue-50 p-6 rounded border border-blue-100 text-center">
-                    <p class="text-gray-700 font-bold mb-3">Du möchtest mitdiskutieren?</p>
-                    <button onclick="showUserLogin()" class="bg-blue-900 text-white font-bold py-2 px-6 rounded hover:bg-blue-800 transition-colors cursor-pointer text-sm">Jetzt einloggen</button>
-                </div>
-            `}
-        </div>
-    </article>`;
-}
-
-function renderAuthors() {
-    const activeAuthorsList = getActiveAuthors();
-    return `
-    <div class="max-w-5xl mx-auto bg-white p-8 md:p-12 shadow-sm border border-gray-100 min-h-[50vh] font-sans">
-        <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-        </button>
-        <h2 class="text-4xl font-black mb-8 border-b-2 border-black pb-4 uppercase tracking-tighter">Unsere Redaktion</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            ${activeAuthorsList.map(author => `
-                <div class="flex gap-4 border border-gray-200 p-6 rounded-sm bg-gray-50 items-start hover:shadow-md transition-shadow">
-                    ${author.imageUrl ? `
-                        <img src="${author.imageUrl}" alt="${author.name}" class="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onclick="showImageModal('${author.imageUrl}')" onerror="this.outerHTML='${getStandardAvatarHtml('w-20 h-20', 'w-10 h-10').replace(/'/g, "\\'").replace(/"/g, '&quot;')}'" />
-                    ` : getStandardAvatarHtml('w-20 h-20', 'w-10 h-10')}
-                    <div>
-                        <h3 class="text-2xl font-bold text-blue-900 mb-2">${author.name}</h3>
-                        <p class="text-sm text-gray-700 leading-relaxed">${author.bio || 'Keine Beschreibung verfügbar.'}</p>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    </div>
-    `;
-}
-
-function renderProfile() {
-    if (!currentUser) {
-        setView('home');
-        return '';
-    }
-    
-    const user = registeredUsers.find(u => u.username === currentUser);
-    if (!user) return '';
-    ensureUserSubscriptions(user);
-    const allAuthorNames = getAllAuthorNames();
-    const userSubCats = user.subscriptions.categories || [];
-    const userSubAuthors = user.subscriptions.authors || [];
-
-    const likedArticles = articles.filter(a => a.likes.includes(currentUser));
-    const viewedArticles = articles.filter(a => a.views.includes(currentUser));
-    const isBase64 = user.profilePicUrl && user.profilePicUrl.startsWith('data:image');
-    const urlValue = isBase64 ? '' : (user.profilePicUrl || '');
-    
-    return `
-    <div class="max-w-4xl mx-auto mt-8 font-sans mb-16">
-        <button onclick="setView('home')" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer px-4 lg:px-0">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-        </button>
-        
-        <div class="bg-white p-8 border border-gray-200 shadow-sm rounded-sm">
-            <div class="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8 pb-6 border-b border-gray-200 text-center md:text-left">
-                <div class="relative w-32 h-32 shrink-0">
-                    ${getUserAvatar(currentUser, 'w-32 h-32', 'w-16 h-16', true)}
-                    ${user.profilePicUrl ? '<div class="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow pointer-events-none" title="Klicken für Vollbild"><i data-lucide="zoom-in" class="w-4 h-4"></i></div>' : ''}
-                </div>
-                <div class="flex-1">
-                    <h2 class="text-3xl md:text-4xl font-black uppercase tracking-tight">${getDisplayName(currentUser)}</h2>
-                    <p class="text-gray-500 mb-2">Dein persönliches Leser-Profil</p>
-                    <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded uppercase font-bold tracking-wider inline-block">Rolle: ${user.role}</span>
-                </div>
-            </div>
-            
-            <div class="flex flex-col gap-6">
-                <div class="bg-blue-50 p-4 rounded text-sm text-gray-700 flex items-start gap-3">
-                    <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0"></i>
-                    <p>Hier kannst du dein Profilbild anpassen und entscheiden, ob andere deinen echten Namen oder nur deinen Benutzernamen sehen sollen. Klicke auf dein Bild, um es groß anzusehen!</p>
+                        `;
+                    }).join('')}
                 </div>
 
-                ${isFirebaseConnected ? `
-                    <div class="bg-gray-50 p-4 rounded border border-gray-200 text-sm text-gray-700">
-                        <p><span class="font-bold">Account:</span> ${user.username}</p>
-                        <p class="text-xs text-gray-500 mt-1">Benutzername/Passwort werden im Online-Modus über Firebase verwaltet.</p>
-                    </div>
-                ` : `
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Benutzername</label>
-                        <input type="text" id="profileUsername" value="${user.username}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
-                        <p class="text-xs text-gray-500 mt-1">Wenn du deinen Namen änderst, wird dieser auch bei all deinen bisherigen Kommentaren und Likes aktualisiert.</p>
-                    </div>
-
-                    <div class="pt-4 border-t border-gray-200 mt-2">
-                        <h4 class="font-bold text-gray-700 mb-4">Passwort ändern (optional)</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort</label>
-                                <input type="password" id="profileNewPassword" placeholder="Neues Passwort..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Neues Passwort bestätigen</label>
-                                <input type="password" id="profileConfirmPassword" placeholder="Passwort wiederholen..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" />
-                            </div>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-2">Lass diese Felder leer, wenn du dein aktuelles Passwort behalten möchtest.</p>
-                    </div>
-                `}
-
-                <div class="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-200">
-                    <input type="checkbox" id="profileShowRealName" ${user.showRealName ? 'checked' : ''} class="w-5 h-5 cursor-pointer text-blue-600 rounded" />
-                    <label for="profileShowRealName" class="font-bold text-gray-700 cursor-pointer">Zeige meinen Vor- und Nachnamen anstelle des Benutzernamens</label>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Profilbild</label>
-                    <div class="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-200 rounded">
-                        <div>
-                            <label class="text-xs text-gray-500 font-bold uppercase mb-1 block">Vom PC hochladen</label>
-                            <input type="file" id="profilePicFile" accept="image/*" class="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500" />
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <hr class="flex-1 border-gray-300"><span class="text-xs text-gray-400 font-bold uppercase">oder</span><hr class="flex-1 border-gray-300">
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-500 font-bold uppercase mb-1 block">Bild-URL eingeben</label>
-                            <input type="url" id="profilePicUrl" value="${urlValue}" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white" placeholder="${isBase64 ? 'Eigenes Bild hochgeladen. Neue URL eingeben zum Ersetzen...' : 'https://beispiel.de/mein-bild.jpg'}" />
-                        </div>
-                        ${user.profilePicUrl ? `
-                        <button onclick="clearProfilePic()" class="text-xs bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200 font-bold self-start mt-1 transition-colors cursor-pointer">Aktuelles Bild entfernen</button>
-                        ` : ''}
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Über mich (Bio)</label>
-                    <textarea id="profileBio" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" placeholder="Schreibe etwas über dich, deine Interessen oder warum du gerne Zeitung liest...">${user.bio || ''}</textarea>
-                </div>
-
-                <div class="bg-gray-50 p-5 rounded border border-gray-200">
-                    <h4 class="text-lg font-black uppercase mb-3 flex items-center gap-2"><i data-lucide="bell" class="w-5 h-5 text-blue-700"></i> Abos & E-Mail</h4>
-                    <label class="flex items-center gap-3 text-sm font-bold text-gray-700 cursor-pointer select-none">
-                        <input type="checkbox" id="profileEmailNotifyEnabled" ${user.emailNotifyEnabled ? 'checked' : ''} class="w-5 h-5 cursor-pointer text-blue-600 rounded" />
-                        E-Mail Benachrichtigungen aktivieren
-                    </label>
-                    <p class="text-xs text-gray-600 mt-2">E-Mail: <span class="font-mono">${(user.email || '').trim() || '—'}</span></p>
-                    ${!isFirebaseConnected ? `<p class="text-xs text-orange-700 mt-2">Hinweis: E-Mail-Versand funktioniert nur im Online-Modus (Firebase) und benötigt die Firebase Extension "Trigger Email".</p>` : ''}
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                        <div>
-                            <p class="text-sm font-black uppercase text-gray-700 mb-2">Kategorien</p>
-                            <div class="flex flex-col gap-2 max-h-56 overflow-auto pr-2">
-                                ${(categories || []).map(cat => {
-                                    const c = (cat || '').trim();
-                                    if (!c) return '';
-                                    const checked = userSubCats.includes(c) ? 'checked' : '';
-                                    const safe = c.replace(/\"/g, '&quot;');
-                                    return `<label class="flex items-center gap-3 text-sm text-gray-700 cursor-pointer select-none"><input type="checkbox" class="w-4 h-4 cursor-pointer" data-subcat="${safe}" ${checked} /> ${c}</label>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-sm font-black uppercase text-gray-700 mb-2">Autoren</p>
-                            <div class="flex flex-col gap-2 max-h-56 overflow-auto pr-2">
-                                ${allAuthorNames.map(aName => {
-                                    const a = (aName || '').trim();
-                                    if (!a) return '';
-                                    const checked = userSubAuthors.includes(a) ? 'checked' : '';
-                                    const safe = a.replace(/\"/g, '&quot;');
-                                    return `<label class="flex items-center gap-3 text-sm text-gray-700 cursor-pointer select-none"><input type="checkbox" class="w-4 h-4 cursor-pointer" data-subauthor="${safe}" ${checked} /> ${a}</label>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-3">Tipp: Du kannst auch direkt im Artikel bei Autor/Kategorie ein Abo umschalten.</p>
-                </div>
+            ` : hasAdminAccess() ? `
+                <!-- KOMMENTARE TAB -->
+                <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="message-square" class="text-blue-600"></i> Alle Kommentare</h3>
                 
-                <button onclick="saveProfile()" class="bg-blue-900 text-white font-bold py-3 px-4 rounded hover:bg-blue-800 transition-colors mt-2 cursor-pointer flex justify-center items-center gap-2 md:w-1/2">
-                    <i data-lucide="save" class="w-5 h-5"></i> Profil speichern
-                </button>
-                
-                <div class="mt-4 pt-6 border-t border-red-200">
-                    <h4 class="text-red-600 font-bold mb-2">Gefahrenzone</h4>
-                    <button onclick="confirmDeleteOwnAccount()" class="bg-white border border-red-300 text-red-600 font-bold py-2 px-4 rounded hover:bg-red-50 transition-colors text-sm cursor-pointer">Mein Konto dauerhaft löschen</button>
+                <div class="flex flex-col gap-4">
+                    ${allComments.length === 0 ? '<p class="text-gray-500 italic">Noch keine Kommentare geschrieben.</p>' : ''}
+                    ${allComments.map(c => {
+                        const isPending = c.moderationStatus === 'pending';
+                        return `
+                        <div class="bg-white p-4 rounded border ${isPending ? 'border-orange-400 bg-orange-50' : c.isDeleted ? 'border-red-300 bg-red-50 opacity-75' : (c.reportedBy && c.reportedBy.length > 0 ? 'border-orange-400 bg-orange-50' : 'border-gray-200')} shadow-sm">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-2">
+                                    ${getUserAvatar(c.username, 'w-6 h-6', 'w-3 h-3', false)}
+                                    <span class="font-bold text-blue-900">${c.username}</span>
+                                    <span class="text-xs text-gray-500 hidden md:inline">zu Artikel: <span class="font-bold">${c.articleTitle}</span></span>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    <span class="text-xs text-gray-500 flex items-center gap-2">
+                                        ${isPending ? '<span class="bg-orange-500 text-white px-2 py-0.5 rounded font-bold uppercase animate-pulse">Wartet auf Freigabe</span>' : ''}
+                                        ${c.isDeleted ? '<span class="bg-red-600 text-white px-2 py-0.5 rounded font-bold">GELÖSCHT</span>' : ''}
+                                        ${c.reportedBy && c.reportedBy.length > 0 && !c.isDeleted ? `<span class="bg-orange-500 text-white px-2 py-0.5 rounded font-bold uppercase flex items-center gap-1"><i data-lucide="flag" class="w-3 h-3"></i> Gemeldet (${c.reportedBy.length}x)</span>` : ''}
+                                        ${new Date(c.timestamp).toLocaleString('de-DE')}
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-gray-800 leading-relaxed mb-3">${c.text}</p>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-500 flex items-center gap-1"><i data-lucide="heart" class="w-4 h-4"></i> ${c.likes.length} Likes</span>
+                                
+                                <div class="flex flex-wrap gap-2 md:gap-4">
+                                    ${isPending ? `
+                                        <button onclick="adminApproveContent('comment', ${c.id}, ${c.articleId})" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check" class="w-4 h-4"></i> Zulassen</button>
+                                    ` : ''}
+
+                                    ${c.reportedBy && c.reportedBy.length > 0 && !c.isDeleted ? `
+                                        <button onclick="unreportComment(${c.articleId}, ${c.id})" class="text-orange-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="check-circle" class="w-4 h-4"></i> Meldung ignorieren</button>
+                                    ` : ''}
+
+                                    ${c.isDeleted ? `
+                                        <button onclick="restoreComment(${c.articleId}, ${c.id})" class="text-green-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Wiederherstellen</button>
+                                    ` : `
+                                        <button onclick="adminRejectContent('comment', ${c.id}, ${c.articleId})" class="text-red-500 font-bold hover:underline flex items-center gap-1 cursor-pointer"><i data-lucide="trash-2" class="w-4 h-4"></i> ${isPending ? 'Ablehnen & Löschen' : 'Löschen (Verstecken)'}</button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `}).join('')}
                 </div>
-            </div>
-        </div>
-
-        <div class="mt-8 bg-white p-8 border border-gray-200 shadow-sm rounded-sm">
-            <h3 class="text-2xl font-black uppercase mb-6 border-b pb-2">Meine Aktivitäten</h3>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                    <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700"><i data-lucide="heart" class="w-5 h-5 text-red-500"></i> Gefällt mir (${likedArticles.length})</h4>
-                    <ul class="flex flex-col gap-2">
-                        ${likedArticles.length === 0 ? '<li class="text-gray-500 text-sm italic">Noch keine Artikel gelikt.</li>' : likedArticles.map(a => `
-                            <li><button onclick="openArticle(${a.id})" class="text-left text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>
-                        `).join('')}
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-bold flex items-center gap-2 mb-4 text-gray-700"><i data-lucide="eye" class="w-5 h-5 text-blue-500"></i> Zuletzt gelesen (${viewedArticles.length})</h4>
-                    <ul class="flex flex-col gap-2">
-                        ${viewedArticles.length === 0 ? '<li class="text-gray-500 text-sm italic">Noch keine Artikel gelesen.</li>' : viewedArticles.map(a => `
-                            <li><button onclick="openArticle(${a.id})" class="text-left text-sm text-blue-700 hover:underline line-clamp-1">${a.title}</button></li>
-                        `).join('')}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>`;
-}
-
-function renderSearchResults() {
-    const now = new Date();
-    const currentArticles = hasAuthorAccess() ? articles : articles.filter(a => !a.autoDeleteDate || new Date(a.autoDeleteDate) > now);
-    
-    let results = [];
-    let titleHtml = "";
-
-    if (searchCategory) {
-        results = currentArticles.filter(a => a.category === searchCategory);
-        titleHtml = `Ressort: ${searchCategory}`;
-    } else {
-        const query = searchQuery.toLowerCase();
-        results = currentArticles.filter(a => 
-            a.title.toLowerCase().includes(query) || 
-            a.summary.toLowerCase().includes(query) || 
-            a.category.toLowerCase().includes(query)
-        );
-        titleHtml = `Suchergebnisse für "${searchQuery}"`;
-    }
-
-    let html = `
-    <div class="max-w-4xl mx-auto bg-white p-6 md:p-12 shadow-sm border border-gray-100 min-h-[50vh]">
-        <button onclick="setView('home'); isSearchOpen = false; renderApp();" class="flex items-center gap-2 text-blue-600 font-sans font-bold text-sm mb-6 hover:underline cursor-pointer">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Zurück zur Startseite
-        </button>
-        <h2 class="text-3xl font-black mb-2">${titleHtml}</h2>
-        <p class="mb-8 text-gray-600 font-sans font-bold">${results.length} Artikel in dieser Ansicht</p>
-        <div class="flex flex-col gap-8">
-    `;
-
-    if (results.length === 0) {
-        html += `<p class="text-lg text-gray-700">Leider wurden keine passenden Artikel gefunden.</p>`;
-    } else {
-        results.forEach(article => {
-            const displayImage = article.imageUrl || getFallbackImage(article.category);
-            html += `
-            <article onclick="openArticle(${article.id})" class="group cursor-pointer flex flex-col md:flex-row gap-6 border-b border-gray-200 pb-8 last:border-0">
-                <img src="${displayImage}" alt="${article.title}" class="w-full md:w-48 h-32 object-cover rounded-sm group-hover:opacity-90 transition-opacity" />
-                <div class="flex-1">
-                    <span class="text-blue-700 font-bold text-xs uppercase font-sans flex items-center gap-4 mb-2">
-                        ${article.category}
-                        <span class="text-gray-400 font-normal flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> ${article.views.length}</span>
-                    </span>
-                    <h3 class="text-xl md:text-2xl font-bold leading-snug group-hover:text-blue-700 transition-colors mb-2">${article.title}</h3>
-                    <p class="text-sm text-gray-600 line-clamp-2">${article.summary}</p>
-                </div>
-            </article>`;
-        });
-    }
-
-    html += `</div></div>`;
-    return html;
-}
-
-function renderFooter() {
-    return `
-    <footer class="bg-black text-white mt-12 py-12 px-4 font-sans">
-        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-                <h2 class="text-2xl font-black uppercase font-serif mb-4">Winterthur Times</h2>
-                <p class="text-gray-400 text-sm mb-6">Unabhängiges Schulprojekt. Von der MSW.</p>
-                <p class="text-gray-500 text-xs">Kontakt: Nutze den Support-Chat unten rechts.</p>
-            </div>
-            <div>
-                <h4 class="font-bold uppercase tracking-wider mb-4 text-gray-300">Ressorts</h4>
-                <ul class="flex flex-col gap-2 text-sm text-gray-400">
-                    ${categories.slice(0, 8).map(cat => `<li><span onclick="executeSearchCategory('${cat}'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors">${cat}</span></li>`).join('')}
-                </ul>
-            </div>
-            <div>
-                <h4 class="font-bold uppercase tracking-wider mb-4 text-gray-300">Service</h4>
-                <ul class="flex flex-col gap-2 text-sm text-gray-400">
-                    <li><span onclick="setView('gallery'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors">Tagesbilder (Community)</span></li>
-                    <li><span onclick="openFeedbackChat()" class="cursor-pointer text-blue-400 font-bold hover:text-white transition-colors flex items-center gap-1"><i data-lucide="message-square-plus" class="w-4 h-4"></i> Website bewerten</span></li>
-                </ul>
-            </div>
-            <div>
-                <h4 class="font-bold uppercase tracking-wider mb-4 text-gray-300">Verlag</h4>
-                <ul class="flex flex-col gap-2 text-sm text-gray-400">
-                    <li><span onclick="setView('authors'); window.scrollTo(0,0);" class="cursor-pointer hover:text-white transition-colors">Unsere Autoren</span></li>
-                    <li><span onclick="showModal('Über uns', 'Die Winterthur Times ist eine Demo-Umgebung.')" class="cursor-pointer hover:text-white transition-colors">Über uns</span></li>
-                    <li><span onclick="openFeedbackChat()" class="cursor-pointer hover:text-white transition-colors">Kontakt</span></li>
-                    <li class="mt-4">
-                        <button onclick="setView('admin-login')" class="text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1 text-xs uppercase tracking-wider font-bold">
-                            <i data-lucide="lock" class="w-3 h-3"></i> main-Admin Login
-                        </button>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </footer>`;
-}
-
-function renderMenuOverlay() {
-    if (!isMenuOpen) return '';
-    return `
-    <div class="fixed inset-0 bg-black/60 z-50 flex">
-        <div class="bg-white w-64 md:w-80 h-full shadow-2xl flex flex-col animate-slide-in">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <h2 class="text-2xl font-black uppercase font-serif tracking-tight">Menü</h2>
-                <button onclick="toggleMenu()" class="p-2 hover:bg-gray-200 rounded-full transition-colors cursor-pointer text-gray-600">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
-            <nav class="flex-1 overflow-y-auto p-4 bg-white">
-                <ul class="flex flex-col gap-1 font-sans font-bold text-lg text-gray-800">
-                    <li><button onclick="setView('home'); toggleMenu();" class="w-full text-left px-3 py-4 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors flex items-center justify-between group">Startseite <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>
-                    <li><button onclick="setView('gallery'); toggleMenu();" class="w-full text-left px-3 py-4 hover:bg-green-50 hover:text-green-700 rounded transition-colors flex items-center justify-between group">Tagesbilder <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>
-                    ${categories.map(cat => `<li><button onclick="executeSearchCategory('${cat}'); toggleMenu();" class="w-full text-left px-3 py-4 hover:bg-blue-50 hover:text-blue-700 rounded transition-colors flex items-center justify-between group">${cat} <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i></button></li>`).join('')}
-                </ul>
-            </nav>
-        </div>
-        <div class="flex-1 cursor-pointer" onclick="toggleMenu()" title="Menü schließen"></div>
-    </div>`;
-}
-
-function renderModal() {
-    if (!currentModal) return '';
-
-    if (currentModal.type === 'image') {
-        return `
-        <div class="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] px-4" onclick="closeModal()">
-            <div class="relative max-w-4xl w-full flex justify-center" onclick="event.stopPropagation()">
-                <button onclick="closeModal()" class="absolute -top-12 right-0 text-white hover:text-gray-300 cursor-pointer"><i data-lucide="x" class="w-8 h-8"></i></button>
-                <img src="${currentModal.url}" class="max-w-full max-h-[85vh] rounded object-contain shadow-2xl" alt="Vollbild" />
-            </div>
-        </div>`;
-    }
-
-    return `
-    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] px-4">
-        <div class="bg-white p-8 rounded-sm shadow-xl max-w-sm w-full font-sans">
-            <h3 class="text-2xl font-black mb-3">${currentModal.title}</h3>
-            ${currentModal.message ? `<p class="text-gray-600 mb-6 leading-relaxed">${currentModal.message}</p>` : ''}
-            
-            ${currentModal.type === 'login' ? `
-                <div class="flex flex-col gap-3 mb-6">
-                    <input type="text" id="usernameInput" placeholder="Benutzername oder E-Mail" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
-                    <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); loginUser(); }" />
-                    <p id="loginWarning" class="text-red-500 text-sm hidden font-bold mt-1"></p>
-                </div>
-                <div class="flex flex-col gap-3">
-                    <button onclick="loginUser()" class="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer">Einloggen</button>
-                    <div class="text-center text-sm text-gray-600 mt-1">
-                        Noch keinen Account? <button onclick="showUserRegister()" class="text-blue-700 font-bold hover:underline cursor-pointer">Hier erstellen</button>
-                    </div>
-                    <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer mt-2">Abbrechen</button>
-                </div>
-            ` : currentModal.type === 'register' ? `
-                <div class="flex flex-col gap-3 mb-6">
-                    <input type="text" id="usernameInput" placeholder="Benutzername" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('firstNameInput').focus(); }" />
-                    <input type="text" id="firstNameInput" placeholder="Vorname" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('lastNameInput').focus(); }" />
-                    <input type="text" id="lastNameInput" placeholder="Nachname" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('emailInput').focus(); }" />
-                    <input type="email" id="emailInput" placeholder="E-Mail" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('passwordInput').focus(); }" />
-                    <input type="password" id="passwordInput" placeholder="Passwort" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-sans" onkeypress="if(event.key === 'Enter') { event.preventDefault(); registerUser(); }" />
-                    <p id="loginWarning" class="text-red-500 text-sm hidden font-bold mt-1"></p>
-                </div>
-                <div class="flex flex-col gap-3">
-                    <button onclick="registerUser()" class="w-full bg-green-700 text-white font-bold py-3 rounded hover:bg-green-600 transition-colors cursor-pointer">Account erstellen</button>
-                    <div class="text-center text-sm text-gray-600 mt-1">
-                        Bereits registriert? <button onclick="showUserLogin()" class="text-blue-700 font-bold hover:underline cursor-pointer">Hier einloggen</button>
-                    </div>
-                    <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer mt-2">Abbrechen</button>
-                </div>
-            ` : currentModal.onConfirm ? `
-                <div class="flex gap-4">
-                    <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded hover:bg-gray-300 transition-colors cursor-pointer">Abbrechen</button>
-                    <button onclick="executeConfirm()" class="w-full bg-red-600 text-white font-bold py-3 rounded hover:bg-red-700 transition-colors cursor-pointer">Bestätigen</button>
-                </div>
-            ` : `
-                <button onclick="closeModal()" class="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors cursor-pointer">Verstanden</button>
-            `}
+            ` : ''}
         </div>
     </div>`;
 }
@@ -1713,7 +1497,7 @@ function renderApp() {
     else if (view === 'profile') content = renderProfile(); 
     else if (view === 'authors') content = renderAuthors(); 
     else if (view === 'admin-login') content = typeof window.renderAdminLogin === 'function' ? window.renderAdminLogin() : '<div class="p-8 text-center text-red-500">Admin-Script lädt...</div>';
-    else if (view === 'admin-dashboard') content = typeof window.renderAdminDashboard === 'function' ? window.renderAdminDashboard() : '<div class="p-8 text-center text-red-500">Admin-Script lädt...</div>';
+    else if (view === 'admin-dashboard') content = typeof window.renderAdminDashboard === 'function' ? window.renderAdminDashboard() : renderAdminDashboard();
     else if (view === 'gallery') content = renderGallery();
     else if (view === 'feedback') content = renderFeedbackChat();
 
