@@ -490,10 +490,6 @@
 
         function init3DLogo() {
             if (logoRenderer) return;
-            if (!window.THREE) {
-                console.warn('Three.js (THREE) nicht geladen – 3D-Logo wird deaktiviert.');
-                return;
-            }
             logoScene = new THREE.Scene();
             logoCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
             logoCamera.position.z = 6.5;
@@ -2804,7 +2800,7 @@
             }
         }
 
-        function renderAppDuplicate_DO_NOT_USE() {
+        function renderApp() {
             preserveFocus();
             
             // --- 10 TAGE CLEANUP BEIM RENDERN ---
@@ -2835,34 +2831,34 @@
                 return;
             }
 
-            const username = identifier; // Fallback (ohne Firebase): altes System
+            let content = '';
+            if (view === 'home') content = renderHome();
+            else if (view === 'search') content = renderSearchResults(); 
+            else if (view === 'article') content = renderArticle();
+            else if (view === 'profile') content = renderProfile(); 
+            else if (view === 'authors') content = renderAuthors(); 
+            else if (view === 'admin-login') content = typeof window.renderAdminLogin === 'function' ? window.renderAdminLogin() : '<div class="p-8 text-center text-red-500">Admin-Script lädt...</div>';
+            else if (view === 'admin-dashboard') content = typeof window.renderAdminDashboard === 'function' ? window.renderAdminDashboard() : '<div class="p-8 text-center text-red-500">Admin-Script lädt...</div>';
+            else if (view === 'gallery') content = renderGallery();
+            else if (view === 'feedback') content = renderFeedbackChat();
 
-            if (!username || !password) {
-                showWarning("Bitte fülle Benutzername und Passwort aus.");
-                return;
-            }
+            // Prüfen, ob wir in der Admin-Zentrale sind
+            const isAdminView = view === 'admin-login' || view === 'admin-dashboard';
 
-            const existingUser = registeredUsers.find(u => u.username === username);
-            if (!existingUser) {
-                showWarning("Benutzer nicht gefunden. Hast du schon einen Account erstellt?");
-                return;
-            }
+            document.getElementById('app').innerHTML = `
+                ${isAdminView ? '' : renderTopBar()}
+                ${isAdminView ? '' : renderHeader()}
+                <main class="max-w-7xl mx-auto px-4 py-8">
+                    ${content}
+                </main>
+                ${isAdminView ? '' : renderFooter()}
+                ${renderMenuOverlay()}
+                ${renderModal()}
+            `;
             
-            if (existingUser.isBanned) {
-                showWarning("Dein Account wurde gesperrt. Bitte wende dich an den Support.");
-                return;
-            }
+            if (window.lucide) window.lucide.createIcons();
 
-            if (existingUser.isDeleted) {
-                showWarning("Dein Account wurde gelöscht. Bitte wende dich an den Support.");
-                return;
-            }
-
-            if (existingUser.password !== password) {
-                showWarning("Falsches Passwort! Bitte versuche es erneut.");
-                return;
-            }
-
+            const logoContainer = document.getElementById('header-3d-logo');
             currentUser = username;
             currentModal = null; 
             
