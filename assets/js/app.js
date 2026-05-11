@@ -467,7 +467,7 @@ function init3DLogo() {
     textTexture.anisotropy = logoRenderer.capabilities.getMaxAnisotropy();
     const textGeometry = new THREE.SphereGeometry(radius * 1.01, 64, 64);
     const textMaterial = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-    const textSphere = new Mesh(textGeometry, textMaterial);
+    const textSphere = new THREE.Mesh(textGeometry, textMaterial);
     logoGroup.add(textSphere);
 
     logoGroup.rotation.z = 23.5 * Math.PI / 180;
