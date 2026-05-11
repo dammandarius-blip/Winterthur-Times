@@ -671,6 +671,30 @@ window.finalizeModeration = function(type, id, parentId, status) {
     renderApp();
 };
 
+window.adminApproveContent = function(type, id, parentId) {
+    if (!hasAdminAccess()) return;
+    finalizeModeration(type, id, parentId, 'approved');
+};
+
+window.adminRejectContent = function(type, id, parentId) {
+    if (!hasAdminAccess()) return;
+    if (type === 'comment') {
+        const article = articles.find(a => a.id === parentId);
+        if (article) {
+            const c = article.comments.find(c => c.id === id);
+            if (c) {
+                c.moderationStatus = 'rejected';
+                c.isDeleted = true;
+                c.deletedBy = 'admin';
+            }
+        }
+    } else if (type === 'feedback') {
+        siteFeedbacks = siteFeedbacks.filter(f => f.id !== id);
+    }
+    window.saveState();
+    renderApp();
+};
+
 // --- RENDER FUNKTIONEN ---
 function renderTopBar() {
     const role = getCurrentUserRole();
