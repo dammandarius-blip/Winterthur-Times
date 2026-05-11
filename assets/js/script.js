@@ -1,3 +1,169 @@
+Blackberry
+blackberry5155t_11452
+Unsichtbar
+
+Mike
+ hat einen Anruf gestartet, der 4 Minuten gedauert hat. — 19.04.2026 20:05
+Mike — 19.04.2026 20:09
+bin am essen
+Blackberry
+ hat einen Anruf gestartet, der eine Stunde gedauert hat. — 19.04.2026 20:11
+Blackberry — 19.04.2026 21:09
+{
+  "articles": [
+    {
+      "id": 1775984015637,
+      "title": "Leandro Maksutaj: Ein junges Talent mit grossen Zielen",
+      "category": "Sport",... (7MB verbleibend)
+
+winterthur_times_backup_2026-04-12 (1).json
+7 MB
+[
+  {
+    "title": "Peter Pfändler bringt frischen Humor ins Casinotheater",
+    "category": "Kultur",
+    "content": "Peter Pfändler macht Halt im Casinotheater und präsentiert dort sein überarbeitetes Programm „Eifach luschtig“. Der bekannte Schweizer Comedian, ausgezeichnet mit dem Prix Walo und oft bei den Humortagen Arosa zu sehen, setzt dabei auf eine Mischung aus bewährten und neuen Elementen.\n\nIm Zentrum steht weiterhin das Thema Schule, das Pfändler mit viel Witz aus dem Alltag aufgreift. Besonders seine humorvollen Einblicke in Elternabende liefern reichlich Stoff für Lacher. Gleichzeitig wurde das Programm deutlich angepasst: Auf Videoeinspieler verzichtet er bewusst, um das Tempo hochzuhalten und direkter mit dem Publikum zu interagieren.\n\nAuch seine beliebten Figuren sind wieder mit dabei – allerdings in leicht veränderter Form. Einige treten nur kurz auf, während andere weiterentwickelt wurden. Neu hinzugekommen ist unter anderem eine zusätzliche Bühnenfigur, die für frischen Wind sorgt.\n\nEine weitere Änderung betrifft die Technik: Pfändler übernimmt diese nun selbst. Dadurch gewinnt er mehr Flexibilität und kann spontaner auf das Publikum reagieren. Im Gegensatz zu früheren Tourneen, bei denen alles exakt geplant war, steht diesmal die Improvisation stärker im Vordergrund.\n\nMit diesem Konzept verspricht der Auftritt im Casinotheater einen abwechslungsreichen und lebendigen Comedy-Abend.",
+    "imageUrl": "",
+
+winterthur_times_artikel (1).txt
+7 kB
+WinterthurTimes
+Du hast einen Anruf von 
+Mike
+ verpasst, der ein paar Sekunden gedauert hat. — 08.05.2026 19:20
+Blackberry
+ hat einen Anruf gestartet, der 3 Stunden gedauert hat. — 08.05.2026 19:25
+Blackberry — 08.05.2026 20:31
+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
+Mike — 08.05.2026 22:22
+const WORKER_BASE = "https://askai.mikestaub705.workers.dev/";
+
+const chatEl = document.getElementById("chat");
+const inputEl = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
+
+let messages = [];
+
+function renderMessages() {
+  chatEl.innerHTML = "";
+  for (const msg of messages) {
+    const div = document.createElement("div");
+    div.classList.add("msg");
+    div.classList.add(msg.role === "user" ? "msg-user" : "msg-bot");
+    div.textContent = msg.content;
+    chatEl.appendChild(div);
+  }
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function loadChat() {
+  try {
+    const res = await fetch(${WORKER_BASE}/api/chat/load);
+    const data = await res.json();
+    messages = data.messages || [];
+    renderMessages();
+  } catch (e) {
+    console.error("Fehler beim Laden:", e);
+  }
+}
+}
+
+async function saveChat() {
+  try {
+    await fetch(${WORKER_BASE}/api/chat/save, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages })
+    });
+  } catch (e) {
+    console.error("Fehler beim Speichern:", e);
+  }
+}
+
+async function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  inputEl.value = "";
+  sendBtn.disabled = true;
+
+  messages.push({ role: "user", content: text });
+  renderMessages();
+  await saveChat();
+
+  try {
+    const res = await fetch(${WORKER_BASE}/api/chat, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        loggedIn: false,
+        popular: []
+      })
+    });
+
+    const data = await res.json();
+    messages.push({ role: "assistant", content: data.reply });
+    renderMessages();
+    await saveChat();
+  } catch (e) {
+    messages.push({
+      role: "assistant",
+      content: "Es ist ein Fehler aufgetreten."
+    });
+    renderMessages();
+  }
+
+  sendBtn.disabled = false;
+}
+
+sendBtn.addEventListener("click", sendMessage);
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+
+loadChat();
+<script src="app.js"></script>
+Schritt 2 — In deine index.html kommt nur das hier
+👉 Ganz unten vor </body> einfügen:
+
+html
+<script src="app.js"></script>
+Und du brauchst in deiner HTML folgende IDs:
+
+id="chat"
+
+id="chatInput"
+
+id="sendBtn"
+Mike
+ hat einen Anruf gestartet. — 19:46
+Mike — 19:47
+ja
+wart schnell
+Blackberry — 19:47
+ok
+Blackberry — 20:42
+/**
+ * Winterthur Times - Support Chat Widget
+ * Integriert deinen Cloudflare Worker für das Laden/Speichern von Chats
+ */
+
+const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
+
+message.txt
+16 kB
+Mike — 20:48
+/**
+ * Winterthur Times - Support Chat Widget
+ * Integriert deinen Cloudflare Worker für das Laden/Speichern von Chats
+ */
+
+const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
+
+script.js
+14 kB
+﻿
 /**
  * Winterthur Times - Support Chat Widget
  * Integriert deinen Cloudflare Worker für das Laden/Speichern von Chats
@@ -7,6 +173,12 @@ const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
 let chatMessages = [];
 let isChatOpen = false;
 let aiEnabled = true; // Neue Variable für KI-Status
+
+// --- User-ID erzeugen (pro Browser einmalig) ---
+if (!localStorage.userId) {
+    localStorage.userId = crypto.randomUUID();
+}
+const userId = localStorage.userId;
 
 // --- Zusätzliches CSS für Mobile & Scrollbars einfügen ---
 const style = document.createElement('style');
@@ -20,18 +192,15 @@ style.innerHTML = `
         0%, 80%, 100% { transform: scale(0); }
         40% { transform: scale(1); }
     }
-    /* Verhindere doppelte Buttons aus alten Code-Resten der Haupt-App */
     #app > #chatToggleBtn, #app #active-support-widget { display: none !important; }
 `;
 document.head.appendChild(style);
 
 // 1. UI dynamisch in die Seite einfügen
 function initFloatingSupportChat() {
-    // Alte Instanzen entfernen, falls das Skript (z.B. durch Neuladen) mehrfach ausgeführt wird
     const existingWrapper = document.getElementById('support-chat-wrapper');
     if (existingWrapper) existingWrapper.remove();
     
-    // Alte, verwaiste Buttons sicherheitshalber aus dem Body löschen
     const oldBtn = document.getElementById('chatToggleBtn');
     if (oldBtn && oldBtn.parentElement === document.body) oldBtn.remove();
     const oldWidget = document.getElementById('support-chat-widget');
@@ -40,16 +209,12 @@ function initFloatingSupportChat() {
     const container = document.createElement('div');
     container.id = 'support-chat-wrapper';
     container.innerHTML = `
-        <!-- Runder Chat-Button unten rechts -->
         <button id="chatToggleBtn" onclick="toggleSupportChat()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-600 text-white p-3 sm:p-4 rounded-full shadow-2xl hover:bg-blue-700 hover:scale-105 transition-all duration-300 z-[100] flex items-center justify-center">
             <i data-lucide="message-circle" class="w-7 h-7"></i>
         </button>
 
-        <!-- Das eigentliche Chat-Fenster (Mobile: Vollbild, Desktop: Schwebend) -->
-        <!-- HIER ANGEPASST: sm:w-[420px] (breiter) und sm:h-[30rem] (weniger hoch) -->
         <div id="support-chat-widget" class="fixed bottom-0 right-0 w-full h-[100dvh] sm:bottom-24 sm:right-6 sm:w-[420px] sm:h-[30rem] bg-white sm:border sm:border-gray-200 shadow-2xl sm:rounded-2xl z-[100] hidden flex-col overflow-hidden font-sans transition-all duration-300 transform origin-bottom-right">
             
-            <!-- Header -->
             <div class="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-3 sm:p-4 flex justify-between items-center shadow-md z-10">
                 <div class="flex items-center gap-3">
                     <div class="relative">
@@ -64,23 +229,17 @@ function initFloatingSupportChat() {
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <!-- KI An/Aus Schalter -->
                     <button id="aiToggleButton" onclick="toggleSupportAI()" class="bg-green-500 hover:bg-green-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-[0_0_12px_rgba(74,222,128,0.8)] border border-green-400" title="KI an-/ausschalten">
                         <i data-lucide="bot" id="ai-toggle-icon" class="w-4 h-4"></i> <span id="ai-toggle-text">KI: AN</span>
                     </button>
-                    <!-- Schließen -->
                     <button onclick="toggleSupportChat()" class="text-white hover:text-blue-200 transition-colors p-1.5 rounded-lg hover:bg-white/10" title="Chat schließen">
                         <i data-lucide="chevron-down" class="w-6 h-6"></i>
                     </button>
                 </div>
             </div>
             
-            <!-- Chat-Verlauf -->
-            <div id="supportChatMessages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-slate-50 text-sm gap-4 scroll-smooth">
-                <!-- Nachrichten werden hier eingefügt -->
-            </div>
+            <div id="supportChatMessages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-slate-50 text-sm gap-4 scroll-smooth"></div>
             
-            <!-- Eingabefeld (Wächst automatisch mit Text) -->
             <div class="bg-white border-t border-gray-100 flex flex-col shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] pb-safe">
                 <div class="p-3 sm:p-4 flex gap-2 items-end pb-2">
                     <textarea id="supportChatInput" rows="1"
@@ -93,7 +252,6 @@ function initFloatingSupportChat() {
                         <i data-lucide="send" class="w-5 h-5 ml-0.5"></i>
                     </button>
                 </div>
-                <!-- Warntext für die KI -->
                 <div class="text-center pb-3 px-4">
                     <p class="text-[10px] text-gray-400">Hinweis: Die KI kann Fehler machen. Bitte überprüfe wichtige Informationen.</p>
                 </div>
@@ -102,13 +260,12 @@ function initFloatingSupportChat() {
     `;
     document.body.appendChild(container);
     
-    // Lucide Icons initialisieren
     if (window.lucide) {
         lucide.createIcons();
     }
 }
 
-// 2. Chat öffnen/schließen (Für Mobile optimiert)
+// 2. Chat öffnen/schließen
 function toggleSupportChat() {
     isChatOpen = !isChatOpen;
     const widget = document.getElementById('support-chat-widget');
@@ -116,7 +273,6 @@ function toggleSupportChat() {
     
     if (isChatOpen) {
         widget.style.display = 'flex';
-        // Chat-Button auf mobilen Geräten verstecken, um Platz zu sparen
         toggleBtn.classList.add('sm:flex', 'hidden');
         
         loadSupportChat(); 
@@ -146,16 +302,12 @@ function toggleSupportAI() {
     if (aiEnabled) {
         indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
         statusText.innerText = "KI-Assistent aktiv";
-        
-        // Füge das grüne Leuchten (Glow) wieder hinzu
         toggleBtn.className = "bg-green-500 hover:bg-green-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-[0_0_12px_rgba(74,222,128,0.8)] border border-green-400";
         toggleIcon.setAttribute('data-lucide', 'bot');
         toggleText.innerText = "KI: AN";
     } else {
         indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
         statusText.innerText = "Nur Menschlicher Support";
-        
-        // Entferne das Leuchten und mache den Button grau
         toggleBtn.className = "bg-gray-500 hover:bg-gray-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-sm border border-gray-400";
         toggleIcon.setAttribute('data-lucide', 'bot-off');
         toggleText.innerText = "KI: AUS";
@@ -163,7 +315,7 @@ function toggleSupportAI() {
     if (window.lucide) lucide.createIcons();
 }
 
-// 3. UI updaten (Nachrichten rendern & Animationen)
+// 3. UI updaten
 function updateSupportChatUI() {
     const chatEl = document.getElementById('supportChatMessages');
     if (!chatEl) return;
@@ -185,7 +337,6 @@ function updateSupportChatUI() {
         const div = document.createElement("div");
         
         if (msg.isTyping) {
-            // Animation für "KI denkt nach"
             div.className = "bg-white border border-gray-200 p-4 rounded-2xl rounded-bl-none self-start shadow-sm flex items-center gap-1.5 w-16 h-11";
             div.innerHTML = `
                 <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0s"></span>
@@ -203,14 +354,18 @@ function updateSupportChatUI() {
         chatEl.appendChild(div);
     }
     
-    // Automatisch nach unten scrollen
     chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 // 4. API Calls (Worker)
 async function loadSupportChat() {
     try {
-        const res = await fetch(`${WORKER_BASE}/api/chat/load`);
+        const res = await fetch(`${WORKER_BASE}/api/chat/load`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId })
+        });
+
         const data = await res.json();
         chatMessages = data.messages || [];
         updateSupportChatUI();
@@ -224,7 +379,7 @@ async function saveSupportChat() {
         await fetch(`${WORKER_BASE}/api/chat/save`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: chatMessages })
+            body: JSON.stringify({ userId, messages: chatMessages })
         });
     } catch (e) {
         console.error("Fehler beim Speichern des Chats:", e);
@@ -238,25 +393,22 @@ async function sendSupportChatMessage() {
     const text = inputEl.value.trim();
     if (!text) return;
 
-    // UI sperren & Eingabefeld zurücksetzen
     inputEl.value = "";
-    inputEl.style.height = ''; // Auto-Resize zurücksetzen
+    inputEl.style.height = '';
     inputEl.disabled = true;
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i>';
     if (window.lucide) lucide.createIcons();
 
-    // User-Nachricht anzeigen & speichern
     chatMessages.push({ role: "user", content: text });
     updateSupportChatUI();
     await saveSupportChat();
 
-    // Wenn KI deaktiviert ist, antworte sofort mit einer System-Nachricht
     if (!aiEnabled) {
         setTimeout(async () => {
             chatMessages.push({ 
                 role: "assistant", 
-                content: "🤖 Die KI ist derzeit ausgeschaltet. Deine Nachricht wurde sicher gespeichert. Ein Mitarbeiter wird sich das bald ansehen." 
+                content: "Die KI ist derzeit ausgeschaltet. Deine Nachricht wurde gespeichert. Ein Mitarbeiter meldet sich bald." 
             });
             updateSupportChatUI();
             await saveSupportChat();
@@ -270,9 +422,6 @@ async function sendSupportChatMessage() {
         return;
     }
 
-    // --- KI Antwort abfragen ---
-    
-    // Temporäre "Tippt..." Animation hinzufügen
     const typingId = Date.now();
     chatMessages.push({ role: "assistant", content: "", isTyping: true, id: typingId });
     updateSupportChatUI();
@@ -290,10 +439,8 @@ async function sendSupportChatMessage() {
 
         const data = await res.json();
         
-        // Tippen-Animation entfernen
         chatMessages = chatMessages.filter(msg => msg.id !== typingId);
         
-        // Richtige Antwort hinzufügen
         chatMessages.push({ role: "assistant", content: data.reply });
         updateSupportChatUI();
         await saveSupportChat();
@@ -302,12 +449,11 @@ async function sendSupportChatMessage() {
         
         chatMessages.push({
             role: "assistant",
-            content: "⚠️ Leider ist ein Verbindungsfehler aufgetreten."
+            content: "Leider ist ein Verbindungsfehler aufgetreten."
         });
         updateSupportChatUI();
     }
 
-    // UI entsperren
     inputEl.disabled = false;
     sendBtn.disabled = false;
     sendBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5 ml-0.5"></i>';
@@ -315,7 +461,6 @@ async function sendSupportChatMessage() {
     inputEl.focus();
 }
 
-// Widget beim Laden der Seite initialisieren
 document.addEventListener("DOMContentLoaded", () => {
     initFloatingSupportChat();
 });
