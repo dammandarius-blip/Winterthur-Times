@@ -467,7 +467,7 @@ function init3DLogo() {
     textTexture.anisotropy = logoRenderer.capabilities.getMaxAnisotropy();
     const textGeometry = new THREE.SphereGeometry(radius * 1.01, 64, 64);
     const textMaterial = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-    const textSphere = new THREE.Mesh(textGeometry, textMaterial);
+    const textSphere = new Mesh(textGeometry, textMaterial);
     logoGroup.add(textSphere);
 
     logoGroup.rotation.z = 23.5 * Math.PI / 180;
@@ -1659,22 +1659,41 @@ function restoreFocus() {
 function renderApp() {
     preserveFocus();
     
-    // --- 10 TAGE CLEANUP BEIM RENDERN ---
-    // Prüft, ob Nachrichten älter als 10 Tage sind und löscht sie restlos.
+    // --- 10 & 15 TAGE CLEANUP BEIM RENDERN ---
     const now = Date.now();
     const tenDays = 10 * 24 * 60 * 60 * 1000;
+    const fifteenDays = 15 * 24 * 60 * 60 * 1000;
     let chatsChanged = false;
     
-    supportChats.forEach(chat => {
+    supportChats = supportChats.filter(chat => {
         const origLen = chat.messages.length;
+        
+        // Finde die neueste Nachricht im Chat (als Zeitstempel)
+        let latestMsgTime = chat.id; // Fallback: Erstellungsdatum (id = timestamp)
+        if (chat.messages.length > 0) {
+            latestMsgTime = new Date(chat.messages[chat.messages.length - 1].timestamp).getTime();
+        }
+
+        // 1. Nachrichten löschen, die älter als 10 Tage sind (Nutzer sieht max. die letzten 10 Tage)
         chat.messages = chat.messages.filter(m => (now - new Date(m.timestamp).getTime()) <= tenDays);
         if (origLen !== chat.messages.length) chatsChanged = true;
+
+        const inactiveTime = now - latestMsgTime;
+
+        // 2. Nach 15 Tagen Inaktivität -> Chat KOMPLETT löschen
+        if (inactiveTime > fifteenDays) {
+            chatsChanged = true;
+            return false; 
+        }
+
+        // 3. Nach 10 Tagen Inaktivität -> Automatisch für Admins archivieren
+        if (inactiveTime > tenDays && !chat.adminDeleted) {
+            chat.adminDeleted = true;
+            chatsChanged = true;
+        }
+
+        return true;
     });
-    
-    // Chats ganz entfernen, wenn keine Nachrichten mehr drin sind
-    const origChatsLen = supportChats.length;
-    supportChats = supportChats.filter(chat => chat.messages.length > 0);
-    if (origChatsLen !== supportChats.length) chatsChanged = true;
     
     if (chatsChanged && isFirebaseConnected && typeof scheduleRemoteSave === 'function') {
         scheduleRemoteSave(); 
@@ -2528,6 +2547,33 @@ window.executeSearchCategory = function(category) {
     searchQuery = ""; 
     isSearchOpen = false; 
     setView('search');
+}
+
+window.adminArchiveChat = function(chatId) {
+    const chat = supportChats.find(c => c.id == chatId);
+    if(chat) {
+        chat.adminDeleted = true;
+        adminSelectedChatId = null;
+        window.saveState();
+        renderApp();
+    }
+}
+
+window.adminDeleteChat = function(chatId) {
+    currentModal = {
+        title: 'Support-Chat löschen?',
+        message: 'Möchtest du diesen Chat komplett aus der Datenbank löschen? (Auch der Nutzer verliert den Zugriff)',
+        onConfirm: function() {
+            supportChats = supportChats.filter(c => c.id != chatId);
+            if (adminSelectedChatId == chatId) {
+                adminSelectedChatId = null;
+            }
+            currentModal = null;
+            window.saveState();
+            renderApp();
+        }
+    };
+    renderApp();
 }
 
 // --- INITIALISIERUNG ---
