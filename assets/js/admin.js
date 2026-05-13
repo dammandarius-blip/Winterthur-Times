@@ -1082,3 +1082,73 @@ window.importArticles = function(event) {
     reader.readAsText(file);
     event.target.value = '';
 }
+
+// --- MODERATION ---
+
+window.finalizeModeration = function(type, id, parentId, status) {
+    if (type === 'comment') {
+        const article = articles.find(a => a.id === parentId);
+        if (article) {
+            const c = article.comments.find(c => c.id === id);
+            if (c) c.moderationStatus = status;
+        }
+    } else if (type === 'feedback') {
+        const fb = siteFeedbacks.find(f => f.id === id);
+        if (fb) fb.moderationStatus = status;
+    }
+    window.saveState();
+    renderApp();
+};
+
+window.adminApproveContent = function(type, id, parentId) {
+    if (!hasAdminAccess()) return;
+    finalizeModeration(type, id, parentId, 'approved');
+};
+
+window.adminRejectContent = function(type, id, parentId) {
+    if (!hasAdminAccess()) return;
+    if (type === 'comment') {
+        const article = articles.find(a => a.id === parentId);
+        if (article) {
+            const c = article.comments.find(c => c.id === id);
+            if (c) {
+                c.moderationStatus = 'rejected';
+                c.isDeleted = true;
+                c.deletedBy = 'admin';
+            }
+        }
+    } else if (type === 'feedback') {
+        siteFeedbacks = siteFeedbacks.filter(f => f.id !== id);
+    }
+    window.saveState();
+    renderApp();
+};
+
+// --- SUPPORT CHAT MANAGEMENT ---
+
+window.adminArchiveChat = function(chatId) {
+    const chat = supportChats.find(c => c.id == chatId);
+    if(chat) {
+        chat.adminDeleted = true;
+        adminSelectedChatId = null;
+        window.saveState();
+        renderApp();
+    }
+}
+
+window.adminDeleteChat = function(chatId) {
+    currentModal = {
+        title: 'Support-Chat löschen?',
+        message: 'Möchtest du diesen Chat komplett aus der Datenbank löschen? (Auch der Nutzer verliert den Zugriff)',
+        onConfirm: function() {
+            supportChats = supportChats.filter(c => c.id != chatId);
+            if (adminSelectedChatId == chatId) {
+                adminSelectedChatId = null;
+            }
+            currentModal = null;
+            window.saveState();
+            renderApp();
+        }
+    };
+    renderApp();
+}
