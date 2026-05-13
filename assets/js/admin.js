@@ -416,31 +416,30 @@ window.renderAdminDashboard = function() {
                 })()}
 
             ` : adminTab === 'support' && hasAdminAccess() ? `
-                
                 <h3 class="text-xl font-bold uppercase flex items-center gap-2 border-b pb-4 mb-6"><i data-lucide="help-circle" class="text-blue-600"></i> Support-Anfragen</h3>
                 
                 <div class="flex flex-col md:flex-row gap-6 h-auto md:h-[600px] min-h-[500px]">
                     <div class="w-full md:w-1/3 border border-gray-200 rounded bg-white overflow-y-auto max-h-[300px] md:max-h-full">
                         ${supportChats.length === 0 ? '<p class="p-4 text-gray-500 italic text-sm">Keine Support-Anfragen vorhanden.</p>' : supportChats.map(c => {
                             const lastMsg = c.messages[c.messages.length - 1];
-                            const isSelected = adminSelectedChatId === c.id;
+                            const isSelected = adminSelectedChatId == c.id;
                             const isUnread = lastMsg && lastMsg.sender === 'user';
                             
                             const user = registeredUsers.find(u => u.username === c.userId);
                             const isBanned = user ? user.isBanned : false;
                             
-                            return `
-                                <div onclick="adminSelectedChatId = ${c.id}; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
+                            return \`
+                                <div onclick="adminSelectedChatId = '\${c.id}'; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors \${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
                                     <div class="flex justify-between items-start mb-1">
-                                        <span class="font-bold text-sm ${isUnread ? 'text-blue-900' : 'text-gray-700'} truncate flex items-center gap-1" title="${c.userId}">
-                                            ${c.userId.length > 15 ? c.userId.substring(0, 15) + '...' : c.userId}
-                                            ${isBanned ? '<span class="bg-red-600 text-white text-[8px] px-1 rounded uppercase" title="Account gesperrt">Gesperrt</span>' : ''}
+                                        <span class="font-bold text-sm \${isUnread ? 'text-blue-900' : 'text-gray-700'} truncate flex items-center gap-1" title="\${c.userId}">
+                                            \${c.userId.length > 15 ? c.userId.substring(0, 15) + '...' : c.userId}
+                                            \${isBanned ? '<span class="bg-red-600 text-white text-[8px] px-1 rounded uppercase" title="Account gesperrt">Gesperrt</span>' : ''}
                                         </span>
-                                        <span class="text-[10px] text-gray-400 mr-3">${lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
+                                        <span class="text-[10px] text-gray-400 mr-3">\${lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
                                     </div>
-                                    <p class="text-xs text-gray-500 truncate pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? lastMsg.text : 'Neuer Chat'}</p>
+                                    <p class="text-xs text-gray-500 truncate pr-3 \${isUnread ? 'font-bold text-gray-800' : ''}">\${lastMsg ? lastMsg.text : 'Neuer Chat'}</p>
                                 </div>
-                            `;
+                            \`;
                         }).join('')}
                     </div>
                     
@@ -451,51 +450,51 @@ window.renderAdminDashboard = function() {
                                 <p>Wähle einen Chat aus der Liste aus.</p>
                             </div>
                         ` : (() => {
-                            const chat = supportChats.find(c => c.id === adminSelectedChatId);
+                            const chat = supportChats.find(c => c.id == adminSelectedChatId);
                             if(!chat) return '<p class="p-4">Chat nicht gefunden.</p>';
                             
                             const user = registeredUsers.find(u => u.username === chat.userId);
                             const isBanned = user ? user.isBanned : false;
                             
-                            return `
+                            return \`
                                 <div class="bg-white p-4 border-b border-gray-200 flex justify-between items-center shadow-sm z-10">
-                                    <h4 ${user ? `onclick="viewUserDetails('${chat.userId}')"` : ''} class="font-bold text-blue-900 flex items-center gap-2 ${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
-                                        ${user ? getUserAvatar(chat.userId, 'w-6 h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-5 h-5"></i>'}
-                                        Chat mit ${chat.userId}
-                                        ${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
-                                        ${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
+                                    <h4 \${user ? \`onclick="viewUserDetails('\${chat.userId}')"\` : ''} class="font-bold text-blue-900 flex items-center gap-2 \${user ? 'cursor-pointer hover:text-blue-700 hover:underline' : ''}" title="\${user ? 'Zum Profil von ' + chat.userId : 'Gast-Nutzer'}">
+                                        \${user ? getUserAvatar(chat.userId, 'w-6 h-6', 'w-3 h-3', false) : '<i data-lucide="user" class="w-5 h-5"></i>'}
+                                        Chat mit \${chat.userId}
+                                        \${isBanned ? '<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gesperrt</span>' : ''}
+                                        \${!user ? '<span class="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase ml-2 no-underline">Gast</span>' : ''}
                                     </h4>
-                                    <button onclick="toggleChatAi('${chat.id}')"
-                                        title="${chat.aiEnabled !== false ? 'KI deaktivieren' : 'KI aktivieren'}"
+                                    <button onclick="toggleChatAi('\${chat.id}')"
+                                        title="\${chat.aiEnabled !== false ? 'KI deaktivieren' : 'KI aktivieren'}"
                                         class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer
-                                        ${chat.aiEnabled !== false
+                                        \${chat.aiEnabled !== false
                                             ? 'bg-green-50 border-green-300 text-green-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
                                             : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-300 hover:text-green-700'}">
-                                        <i data-lucide="${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3.5 h-3.5"></i>
-                                        KI ${chat.aiEnabled !== false ? 'AN' : 'AUS'}
+                                        <i data-lucide="\${chat.aiEnabled !== false ? 'bot' : 'bot-off'}" class="w-3.5 h-3.5"></i>
+                                        KI \${chat.aiEnabled !== false ? 'AN' : 'AUS'}
                                     </button>
                                 </div>
                                 
                                 <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" id="adminChatContainer">
-                                    ${chat.messages.map((m, index) => `
-                                        <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
-                                            <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
-                                                <p class="text-sm">${m.text}</p>
+                                    \${chat.messages.map((m, index) => \`
+                                        <div class="flex \${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
+                                            <div class="max-w-[85%] rounded-lg p-3 \${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
+                                                <p class="text-sm">\${m.text}</p>
                                                 <div class="flex justify-between items-center mt-1 gap-4">
-                                                    <span class="text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
+                                                    <span class="text-[10px] opacity-75 block \${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">\${new Date(m.timestamp).toLocaleString('de-DE')}</span>
                                                 </div>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                    \`).join('')}
                                 </div>
                                 
                                 <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-                                    <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage(${chat.id})" />
-                                    <button onclick="adminReplySupportMessage(${chat.id})" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
+                                    <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage('\${chat.id}')" />
+                                    <button onclick="adminReplySupportMessage('\${chat.id}')" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
                                         Senden <i data-lucide="send" class="w-4 h-4"></i>
                                     </button>
                                 </div>
-                            `;
+                            \`;
                         })()}
                     </div>
                 </div>
@@ -748,8 +747,8 @@ window.changeUserRole = function(username, newRole) {
 window.adminReplySupportMessage = function(chatId) {
     const input = document.getElementById('adminSupportInput');
     if(!input || input.value.trim() === '') return;
-
-    const chat = supportChats.find(c => c.id === chatId);
+    
+    const chat = supportChats.find(c => String(c.id) === String(chatId));
     if(chat) {
         chat.messages.push({
             sender: 'admin',
@@ -759,7 +758,7 @@ window.adminReplySupportMessage = function(chatId) {
         window.saveState();
     }
     renderApp();
-
+    
     setTimeout(() => {
         const container = document.getElementById('adminChatContainer');
         if(container) container.scrollTop = container.scrollHeight;
@@ -778,7 +777,7 @@ window.editArticle = function(id) {
     if (!article) return;
     editingArticleId = id;
     renderApp();
-
+    
     setTimeout(() => {
         document.getElementById('new-title').value = article.title || '';
         document.getElementById('new-category').value = article.category || '';
@@ -786,13 +785,13 @@ window.editArticle = function(id) {
         document.getElementById('new-summary').value = article.summary || '';
         document.getElementById('new-image-url').value = article.imageUrl || '';
         document.getElementById('new-content').value = article.content || '';
-
+        
         const sourcesInput = document.getElementById('new-sources');
         if (sourcesInput) sourcesInput.value = article.sources ? article.sources.join(', ') : '';
 
         const cb = document.getElementById('new-eilmeldung');
         if(cb) cb.checked = !!article.isEilmeldung;
-
+        
         const dateInput = document.getElementById('new-autodelete');
         if(dateInput) {
             if(article.autoDeleteDate) {
@@ -803,7 +802,7 @@ window.editArticle = function(id) {
                 dateInput.value = '';
             }
         }
-
+        
         window.scrollTo(0, 0);
     }, 50);
 }
@@ -824,10 +823,10 @@ window.handleCreateArticle = async function(event) {
     const author = document.getElementById('new-author').value || 'Redaktion';
     const summary = document.getElementById('new-summary').value;
     const content = document.getElementById('new-content').value;
-
+    
     const sourcesVal = document.getElementById('new-sources') ? document.getElementById('new-sources').value : '';
     const sources = sourcesVal.split(',').map(s => s.trim()).filter(s => s !== '');
-
+    
     const autoDeleteVal = document.getElementById('new-autodelete') ? document.getElementById('new-autodelete').value : '';
     const autoDeleteDate = autoDeleteVal ? new Date(autoDeleteVal).toISOString() : null;
 
@@ -952,7 +951,7 @@ window.permanentlyDeleteUser = function(username) {
         message: `Möchtest du den Account "${username}" wirklich unwiderruflich aus der Datenbank entfernen? Dies kann nicht rückgängig gemacht werden.`,
         onConfirm: function() {
             registeredUsers = registeredUsers.filter(u => u.username !== username);
-
+            
             articles.forEach(a => {
                 a.views = a.views.filter(v => v !== username);
                 a.likes = a.likes.filter(l => l !== username);
@@ -983,7 +982,7 @@ window.permanentlyDeleteUser = function(username) {
             });
 
             supportChats = supportChats.filter(chat => chat.userId !== username);
-
+            
             currentModal = null;
             adminTab = 'users';
             adminSelectedUser = null;
@@ -1069,7 +1068,7 @@ window.importBackup = function(event) {
                 supportChats = importedData.supportChats || [];
                 communityImages = importedData.communityImages || [];
                 siteFeedbacks = importedData.siteFeedbacks || [];
-
+                
                 window.saveState();
                 renderApp();
                 showModal('Wiederherstellung erfolgreich', 'Das Backup wurde erfolgreich geladen. Alle Daten wurden auf den gesicherten Stand zurückgesetzt.');
@@ -1151,7 +1150,7 @@ window.adminRejectContent = function(type, id, parentId) {
 // --- SUPPORT CHAT MANAGEMENT ---
 
 window.adminArchiveChat = function(chatId) {
-    const chat = supportChats.find(c => c.id == chatId);
+    const chat = supportChats.find(c => String(c.id) === String(chatId));
     if(chat) {
         chat.adminDeleted = true;
         adminSelectedChatId = null;
@@ -1165,8 +1164,8 @@ window.adminDeleteChat = function(chatId) {
         title: 'Support-Chat löschen?',
         message: 'Möchtest du diesen Chat komplett aus der Datenbank löschen? (Auch der Nutzer verliert den Zugriff)',
         onConfirm: function() {
-            supportChats = supportChats.filter(c => c.id != chatId);
-            if (adminSelectedChatId == chatId) {
+            supportChats = supportChats.filter(c => String(c.id) !== String(chatId));
+            if (String(adminSelectedChatId) === String(chatId)) {
                 adminSelectedChatId = null;
             }
             currentModal = null;
