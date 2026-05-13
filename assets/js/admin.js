@@ -755,30 +755,48 @@ window.changeUserRole = function(username, newRole) {
     }
 }
 
-window.adminReplySupportMessage = function(chatId) {
+window.adminReplySupportMessage = async function(chatId) {
     const input = document.getElementById('adminSupportInput');
-    if(!input || input.value.trim() === '') return;
-    
+    if (!input || input.value.trim() === '') return;
 
+    const text = input.value.trim();
+
+    // 1) Lokal speichern (damit Admin es sofort sieht)
     const chat = supportChats.find(c => c.id === chatId);
-    if(chat) {
+    if (chat) {
         chat.messages.push({
             sender: 'admin',
-            text: input.value.trim(),
+            text: text,
             timestamp: new Date().toISOString()
         });
         window.saveState();
     }
-    renderApp();
-    
 
+    renderApp();
+
+    // 2) AN DEN WORKER SENDEN (damit der Kunde es bekommt)
+    try {
+        await fetch("https://askai.mikestaub705.workers.dev/api/admin/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                password: ADMIN_MASTER_PASSWORD,
+                chatId: chatId,
+                message: text
+            })
+        });
+    } catch (err) {
+        console.error("Fehler beim Senden an Worker:", err);
+    }
+
+    // 3) Scrollen + Fokus
     setTimeout(() => {
         const container = document.getElementById('adminChatContainer');
-        if(container) container.scrollTop = container.scrollHeight;
+        if (container) container.scrollTop = container.scrollHeight;
         const nextInput = document.getElementById('adminSupportInput');
-        if(nextInput) nextInput.focus();
+        if (nextInput) nextInput.focus();
     }, 50);
-}
+};
 
 // -----------------------------------------
 // Logik für Artikel bearbeiten / erstellen
