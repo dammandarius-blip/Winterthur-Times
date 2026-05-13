@@ -1176,3 +1176,73 @@ window.adminDeleteChat = function(chatId) {
     };
     renderApp();
 }
+
+// -----------------------------------------
+// ADMIN LOGIN + SUPPORT-CHAT LADEN VOM WORKER
+// -----------------------------------------
+
+const ADMIN_API_URL = "https://askai.mikestaub705.workers.dev/api/admin/chats";
+const ADMIN_MASTER_PASSWORD = "LOL"; // <-- HIER DEIN PASSWORT EINTRAGEN
+
+window.handleLogin = async function (event) {
+    event.preventDefault();
+    const pw = document.getElementById("adminPassword").value.trim();
+    const errorEl = document.getElementById("loginError");
+
+    if (pw !== ADMIN_MASTER_PASSWORD) {
+        errorEl.classList.remove("hidden");
+        return;
+    }
+
+    errorEl.classList.add("hidden");
+
+    // Falls der Login von der Startseite kommt, leite zur Admin-Seite weiter
+    if (!window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
+        window.location.href = 'adminZentrale.html';
+        return;
+    }
+
+    // Setze die Super-Admin Rechte
+    isSuperAdmin = true;
+
+    // --- Worker API aufrufen ---
+    try {
+        const res = await fetch(ADMIN_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password: pw })
+        });
+
+        const data = await res.json();
+
+        // Chats aus KV übernehmen
+        if (data && data.chats) {
+            supportChats = Object.entries(data.chats).map(([id, messages]) => ({
+                id,
+                userId: messages[0]?.role === "user" ? "Gast" : "Unbekannt",
+                messages: messages.map(m => ({
+                    sender: m.role === "assistant" ? "admin" : "user",
+                    text: m.content,
+                    timestamp: new Date().toISOString()
+                })),
+                aiEnabled: false
+            }));
+        }
+
+        window.saveState();
+        
+        // Öffne direkt den Support-Tab
+        adminTab = "support";
+        if (typeof setView === 'function') {
+            setView('admin-dashboard');
+        } else {
+            renderApp();
+        }
+
+    } catch (err) {
+        console.error("Admin API Fehler:", err);
+        if (typeof showModal === 'function') {
+            showModal('Fehler', 'Fehler beim Laden der Support-Chats.');
+        }
+    }
+};
