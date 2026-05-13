@@ -2105,22 +2105,6 @@ window.toggleLike = function(id) {
     renderApp();
 }
 
-window.handleLogin = function(event) {
-    event.preventDefault();
-    const pwInput = document.getElementById('adminPassword').value;
-    if (pwInput === 'LOL') {
-        if (!window.location.pathname.toLowerCase().includes('adminzentrale.html')) {
-            window.location.href = 'adminZentrale.html';
-        } else {
-            isSuperAdmin = true;
-            adminTab = 'articles';
-            setView('admin-dashboard');
-        }
-    } else {
-        document.getElementById('loginError').classList.remove('hidden');
-    }
-}
-
 window.exitDashboard = function() {
     if(isSuperAdmin) {
         isSuperAdmin = false;
