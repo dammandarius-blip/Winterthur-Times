@@ -440,7 +440,7 @@ window.renderAdminDashboard = function() {
                             const isBanned = user ? user.isBanned : false;
                             
                             return `
-                                <div onclick="adminSelectedChatId = ${c.id}; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
+                                <div onclick="adminSelectedChatId = '${c.id}'; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
                                     <div class="flex justify-between items-start mb-1">
                                         <span class="font-bold text-sm ${isUnread ? 'text-blue-900' : 'text-gray-700'} truncate flex items-center gap-1" title="${c.userId}">
                                             ${c.userId.length > 15 ? c.userId.substring(0, 15) + '...' : c.userId}
@@ -500,8 +500,8 @@ window.renderAdminDashboard = function() {
                                 </div>
                                 
                                 <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-                                    <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage(${chat.id})" />
-                                    <button onclick="adminReplySupportMessage(${chat.id})" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
+                                    <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage('${chat.id}')" />
+                                    <button onclick="adminReplySupportMessage('${chat.id}')" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
                                         Senden <i data-lucide="send" class="w-4 h-4"></i>
                                     </button>
                                 </div>
