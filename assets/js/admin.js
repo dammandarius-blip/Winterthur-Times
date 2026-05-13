@@ -1189,8 +1189,17 @@ window.adminRejectContent = function(type, id, parentId) {
 
 // --- SUPPORT CHAT MANAGEMENT ---
 
+window.adminRestoreChat = function(chatId) {
+    const chat = supportChats.find(c => String(c.id) === String(chatId));
+    if(chat) {
+        chat.adminDeleted = false;
+        window.saveState();
+        renderApp();
+    }
+}
+
 window.adminArchiveChat = function(chatId) {
-    const chat = supportChats.find(c => c.id == chatId);
+    const chat = supportChats.find(c => String(c.id) === String(chatId));
     if(chat) {
         chat.adminDeleted = true;
         adminSelectedChatId = null;
