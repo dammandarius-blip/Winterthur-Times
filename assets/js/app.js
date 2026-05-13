@@ -428,59 +428,73 @@ let targetRotationX = 0;
 function init3DLogo() {
     if (logoRenderer) return;
     if (!window.THREE) return;
-    
-    logoScene = new THREE.Scene();
-    logoCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    logoCamera.position.z = 6.5;
+    try {
+        logoScene = new THREE.Scene();
+        logoCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        logoCamera.position.z = 6.5;
 
-    logoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    logoRenderer.setSize(128, 128);
-    logoRenderer.setPixelRatio(window.devicePixelRatio);
-    logoRenderer.domElement.style.width = '100%';
-    logoRenderer.domElement.style.height = '100%';
-    logoRenderer.domElement.style.objectFit = 'contain';
+        logoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        logoRenderer.setSize(128, 128);
+        logoRenderer.setPixelRatio(window.devicePixelRatio || 1);
+        logoRenderer.domElement.style.width = '100%';
+        logoRenderer.domElement.style.height = '100%';
+        logoRenderer.domElement.style.objectFit = 'contain';
 
-    logoGroup = new THREE.Group();
-    logoInteractiveGroup = new THREE.Group();
-    logoInteractiveGroup.add(logoGroup);
-    logoScene.add(logoInteractiveGroup);
+        logoGroup = new THREE.Group();
+        logoInteractiveGroup = new THREE.Group();
+        logoInteractiveGroup.add(logoGroup);
+        logoScene.add(logoInteractiveGroup);
 
-    const radius = 2;
-    const polyGeometry = new THREE.IcosahedronGeometry(radius, 2);
-    const edges = new THREE.EdgesGeometry(polyGeometry);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xb0b0b0, linewidth: 1, transparent: true, opacity: 0.4 });
-    const polygonSphere = new THREE.LineSegments(edges, lineMaterial);
-    logoGroup.add(polygonSphere);
+        const radius = 2;
+        const polyGeometry = new THREE.IcosahedronGeometry(radius, 2);
+        const edges = new THREE.EdgesGeometry(polyGeometry);
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xb0b0b0, linewidth: 1, transparent: true, opacity: 0.4 });
+        const polygonSphere = new THREE.LineSegments(edges, lineMaterial);
+        logoGroup.add(polygonSphere);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 110px "Times New Roman", Times, serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('WINTERTHUR TIMES', canvas.width / 2, canvas.height / 2);
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 110px "Times New Roman", Times, serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('WINTERTHUR TIMES', canvas.width / 2, canvas.height / 2);
+        }
 
-    const textTexture = new THREE.CanvasTexture(canvas);
-    textTexture.anisotropy = logoRenderer.capabilities.getMaxAnisotropy();
-    const textGeometry = new THREE.SphereGeometry(radius * 1.01, 64, 64);
-    const textMaterial = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-    const textSphere = new THREE.Mesh(textGeometry, textMaterial);
-    logoGroup.add(textSphere);
+        const textTexture = new THREE.CanvasTexture(canvas);
+        textTexture.anisotropy = logoRenderer.capabilities.getMaxAnisotropy();
+        const textGeometry = new THREE.SphereGeometry(radius * 1.01, 64, 64);
+        const textMaterial = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+        const textSphere = new THREE.Mesh(textGeometry, textMaterial);
+        logoGroup.add(textSphere);
 
-    logoGroup.rotation.z = 23.5 * Math.PI / 180;
+        logoGroup.rotation.z = 23.5 * Math.PI / 180;
 
-    document.addEventListener('mousemove', (event) => {
-        const windowHalfY = window.innerHeight / 2;
-        targetRotationX = (event.clientY - windowHalfY) * 0.001;
-    });
+        document.addEventListener('mousemove', (event) => {
+            const windowHalfY = window.innerHeight / 2;
+            targetRotationX = (event.clientY - windowHalfY) * 0.001;
+        });
 
-    animateLogo();
+        animateLogo();
+    } catch (e) {
+        console.warn('3D Logo konnte nicht initialisiert werden (WebGL/Three.js).', e);
+        try {
+            if (logoRenderer && typeof logoRenderer.dispose === 'function') logoRenderer.dispose();
+        } catch (_) {}
+        logoRenderer = null;
+        logoScene = null;
+        logoCamera = null;
+        logoInteractiveGroup = null;
+        logoGroup = null;
+    }
 }
 
 function animateLogo() {
+    if (!logoRenderer || !logoScene || !logoCamera || !logoGroup || !logoInteractiveGroup) return;
     requestAnimationFrame(animateLogo);
     logoGroup.rotateY(-0.0025); 
     logoInteractiveGroup.rotation.x += (targetRotationX - logoInteractiveGroup.rotation.x) * 0.05;
