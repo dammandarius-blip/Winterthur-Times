@@ -651,7 +651,7 @@ window.deleteCategory = function(cat) {
     renderApp();
 }
 
-window.handleSaveAuthor = function(event) {
+window.handleSaveAuthor = async function(event) {
     event.preventDefault();
     if(!hasAdminAccess()) return;
     const name = document.getElementById('author-name').value.trim();
@@ -682,9 +682,21 @@ window.handleSaveAuthor = function(event) {
     };
 
     if (fileInput && fileInput.files && fileInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) { saveObj(e.target.result); };
-        reader.readAsDataURL(fileInput.files[0]);
+        try {
+            // Profilbild auf max 512px skalieren (wie andere Profilbilder)
+            const resized = await resizeImageFile(fileInput.files[0], { maxSize: 512, quality: 0.82, preferWebp: false });
+            if (resized.dataUrl) {
+                saveObj(resized.dataUrl);
+            } else {
+                // Fallback, falls das Skalieren fehlschlägt
+                const reader = new FileReader();
+                reader.onload = function(e) { saveObj(e.target.result); };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        } catch (error) {
+            console.error('Fehler beim Skalieren des Profilbildes:', error);
+            showModal('Fehler', 'Das Bild konnte nicht verarbeitet werden.');
+        }
     } else {
         saveObj(urlInput);
     }
@@ -801,7 +813,7 @@ window.cancelEdit = function() {
     renderApp();
 }
 
-window.handleCreateArticle = function(event) {
+window.handleCreateArticle = async function(event) {
     event.preventDefault();
     if(!hasAuthorAccess()) return;
     const isEilmeldung = document.getElementById('new-eilmeldung') ? document.getElementById('new-eilmeldung').checked : false;
@@ -862,11 +874,23 @@ window.handleCreateArticle = function(event) {
     };
 
     if (fileInput && fileInput.files && fileInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            saveArticle(e.target.result);
-        };
-        reader.readAsDataURL(fileInput.files[0]);
+        try {
+            // Artikelbilder auf max 1200px skalieren, um Speicher zu sparen
+            const resized = await resizeImageFile(fileInput.files[0], { maxSize: 1200, quality: 0.85, preferWebp: false });
+            if (resized.dataUrl) {
+                saveArticle(resized.dataUrl);
+            } else {
+                // Fallback
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    saveArticle(e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        } catch (error) {
+            console.error('Fehler beim Skalieren des Artikelbildes:', error);
+            showModal('Fehler', 'Das Artikelbild konnte nicht verarbeitet werden.');
+        }
     } else {
         saveArticle(urlInput);
     }
