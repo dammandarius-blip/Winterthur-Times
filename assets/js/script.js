@@ -192,14 +192,12 @@ function updateSupportChatUI() {
                 <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0.2s"></span>
                 <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0.4s"></span>
             `;
-        } else if (msg.role === "user" || msg.sender === "user") {
-            // Nachricht vom User selbst
+        } else if (msg.role === "user") {
             div.className = "bg-blue-600 text-white px-4 py-2.5 rounded-2xl rounded-br-none self-end max-w-[85%] shadow-sm whitespace-pre-wrap leading-relaxed";
-            div.textContent = msg.text || msg.content || "";
+            div.textContent = msg.content;
         } else {
-            // Nachricht von der KI ("assistant") oder vom Admin ("admin")
             div.className = "bg-white border border-gray-200 text-gray-800 px-4 py-2.5 rounded-2xl rounded-bl-none self-start max-w-[85%] shadow-sm whitespace-pre-wrap leading-relaxed";
-            div.textContent = msg.text || msg.content || "";
+            div.textContent = msg.content;
         }
         
         chatEl.appendChild(div);
