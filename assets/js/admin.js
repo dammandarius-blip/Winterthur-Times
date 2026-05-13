@@ -3,6 +3,16 @@
  * Diese Datei enthält ausschließlich Logik und Ansichten für Redakteure und Administratoren.
  */
 
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;")
+        .replace(/`/g, "&#096;");
+}
+
 window.renderAdminLogin = function() {
     return `
     <div class="max-w-md mx-auto bg-white p-8 border border-gray-200 shadow-md rounded-sm mt-12">
@@ -276,7 +286,6 @@ window.renderAdminDashboard = function() {
                         ${articles.map(a => {
                             const isExpired = a.autoDeleteDate && new Date(a.autoDeleteDate) <= new Date();
                             return `
-                                <div onclick="adminSelectedChatId = '${c.id}'; renderApp()" class="p-4 border-b border-gray-100 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'} relative">
                             <div class="flex justify-between items-center bg-gray-50 p-4 rounded border border-gray-200 ${isExpired ? 'opacity-60' : ''}">
                                 <div class="flex-1 pr-4">
                                     <span class="text-xs font-bold text-gray-500 uppercase">${a.category}</span>
@@ -439,7 +448,7 @@ window.renderAdminDashboard = function() {
                                         </span>
                                         <span class="text-[10px] text-gray-400 mr-3">${lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
                                     </div>
-                                    <p class="text-xs text-gray-500 truncate pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? lastMsg.text : 'Neuer Chat'}</p>
+                                    <p class="text-xs text-gray-500 truncate pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? escapeHtml(lastMsg.text) : 'Neuer Chat'}</p>
                                 </div>
                             `;
                         }).join('')}
@@ -481,7 +490,7 @@ window.renderAdminDashboard = function() {
                                     ${chat.messages.map((m, index) => `
                                         <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
                                             <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
-                                                <p class="text-sm">${m.text}</p>
+                                                <p class="text-sm">${escapeHtml(m.text)}</p>
                                                 <div class="flex justify-between items-center mt-1 gap-4">
                                                     <span class="text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
                                                 </div>
@@ -491,8 +500,6 @@ window.renderAdminDashboard = function() {
                                 </div>
                                 
                                 <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-                                    <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage('${chat.id}')" />
-                                    <button onclick="adminReplySupportMessage('${chat.id}')" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
                                     <input type="text" id="adminSupportInput" placeholder="Deine manuelle Antwort schreiben..." class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500 font-sans text-sm" onkeypress="if(event.key === 'Enter') adminReplySupportMessage(${chat.id})" />
                                     <button onclick="adminReplySupportMessage(${chat.id})" class="bg-blue-900 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition-colors cursor-pointer text-sm flex items-center gap-2">
                                         Senden <i data-lucide="send" class="w-4 h-4"></i>
