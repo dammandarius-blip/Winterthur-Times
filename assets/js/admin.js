@@ -1234,6 +1234,10 @@ window.handleLogin = async function (event) {
             body: JSON.stringify({ password: pw })
         });
 
+        if (!res.ok) {
+            throw new Error(`Server antwortete mit Status ${res.status}: ${res.statusText}`);
+        }
+
         const data = await res.json();
 
         // Chats aus KV übernehmen
@@ -1247,23 +1251,23 @@ window.handleLogin = async function (event) {
                     timestamp: new Date().toISOString()
                 })),
                 aiEnabled: false
-            }));
-        }
+        }));
+    }
 
-        window.saveState();
+    window.saveState();
 
-        // Öffne direkt den Support-Tab
-        adminTab = "support";
-        if (typeof setView === 'function') {
-            setView('admin-dashboard');
-        } else {
-            renderApp();
-        }
+    // Öffne direkt den Support-Tab
+    adminTab = "support";
+    if (typeof setView === 'function') {
+        setView('admin-dashboard');
+    } else {
+        renderApp();
+    }
 
     } catch (err) {
         console.error("Admin API Fehler:", err);
         if (typeof showModal === 'function') {
-            showModal('Fehler', 'Fehler beim Laden der Support-Chats.');
+            showModal('Fehler', formatErrorDetails('Fehler beim Laden der Support-Chats.', err));
         }
     }
 };
