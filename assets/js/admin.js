@@ -498,10 +498,10 @@ window.renderAdminDashboard = function() {
                     
                     <div class="w-full md:w-2/3 border border-gray-200 rounded bg-gray-50 flex flex-col relative min-h-[400px] md:min-h-0">
                         ${!adminSelectedChatId ? `
-                            <div class="flex-1 flex items-center justify-center text-gray-400 flex-col gap-2">
-                                <i data-lucide="message-square" class="w-12 h-12 opacity-50"></i>
-                                <p>Wähle einen Chat aus der Liste aus.</p>
+                            <div class="p-6 text-gray-500 text-sm italic">
+                                Kein Chat ausgewählt.
                             </div>
+
                         ` : (() => {
                             const chat = supportChats.find(c => String(c.id) === String(adminSelectedChatId));
                             if(!chat) return '<p class="p-4">Chat nicht gefunden.</p>';
