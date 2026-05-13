@@ -448,7 +448,7 @@ window.renderAdminDashboard = function() {
                                         </span>
                                         <span class="text-[10px] text-gray-400 mr-3">${lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
                                     </div>
-                                    <p class="text-xs text-gray-500 truncate pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? escapeHtml(lastMsg.text) : 'Neuer Chat'}</p>
+                                    <p class="text-xs text-gray-500 truncate pr-3 ${isUnread ? 'font-bold text-gray-800' : ''}">${lastMsg ? escapeHtml(lastMsg.text || lastMsg.content || '') : 'Neuer Chat'}</p>
                                 </div>
                             `;
                         }).join('')}
@@ -490,7 +490,7 @@ window.renderAdminDashboard = function() {
                                     ${chat.messages.map((m, index) => `
                                         <div class="flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}">
                                             <div class="max-w-[85%] rounded-lg p-3 ${m.sender === 'admin' ? 'bg-blue-900 text-white rounded-br-none' : 'bg-white border border-gray-300 text-gray-800 rounded-bl-none'} shadow-sm">
-                                                <p class="text-sm">${escapeHtml(m.text)}</p>
+                                                <p class="text-sm">${escapeHtml(m.text || m.content || '')}</p>
                                                 <div class="flex justify-between items-center mt-1 gap-4">
                                                     <span class="text-[10px] opacity-75 block ${m.sender === 'user' ? 'text-left text-gray-400' : 'text-blue-200 text-right w-full'}">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
                                                 </div>
