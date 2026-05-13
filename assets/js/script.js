@@ -6,10 +6,6 @@
 const WORKER_BASE = "https://askai.mikestaub705.workers.dev";
 let chatMessages = [];
 let isChatOpen = false;
-let aiEnabled = true;
-
-// --- userId wird erst gesetzt, wenn DOM bereit ist ---
-let userId;
 let aiEnabled = true; // Neue Variable für KI-Status
 
 // --- Zusätzliches CSS für Mobile & Scrollbars einfügen ---
@@ -79,7 +75,6 @@ function initFloatingSupportChat() {
                 </div>
             </div>
             
-            <div id="supportChatMessages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-slate-50 text-sm gap-4 scroll-smooth"></div>
             <!-- Chat-Verlauf -->
             <div id="supportChatMessages" class="flex-1 p-4 overflow-y-auto flex flex-col bg-slate-50 text-sm gap-4 scroll-smooth">
                 <!-- Nachrichten werden hier eingefügt -->
@@ -113,7 +108,6 @@ function initFloatingSupportChat() {
     }
 }
 
-// 2. Chat öffnen/schließen
 // 2. Chat öffnen/schließen (Für Mobile optimiert)
 function toggleSupportChat() {
     isChatOpen = !isChatOpen;
@@ -152,7 +146,7 @@ function toggleSupportAI() {
     if (aiEnabled) {
         indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
         statusText.innerText = "KI-Assistent aktiv";
-        
+
         // Füge das grüne Leuchten (Glow) wieder hinzu
         toggleBtn.className = "bg-green-500 hover:bg-green-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-[0_0_12px_rgba(74,222,128,0.8)] border border-green-400";
         toggleIcon.setAttribute('data-lucide', 'bot');
@@ -160,7 +154,7 @@ function toggleSupportAI() {
     } else {
         indicator.className = "absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-400 border-2 border-blue-900 rounded-full transition-colors duration-300";
         statusText.innerText = "Nur Menschlicher Support";
-        
+
         // Entferne das Leuchten und mache den Button grau
         toggleBtn.className = "bg-gray-500 hover:bg-gray-600 text-white transition-all px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-sm border border-gray-400";
         toggleIcon.setAttribute('data-lucide', 'bot-off');
@@ -169,7 +163,6 @@ function toggleSupportAI() {
     if (window.lucide) lucide.createIcons();
 }
 
-// 3. UI updaten
 // 3. UI updaten (Nachrichten rendern & Animationen)
 function updateSupportChatUI() {
     const chatEl = document.getElementById('supportChatMessages');
@@ -199,17 +192,17 @@ function updateSupportChatUI() {
                 <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0.2s"></span>
                 <span class="w-2 h-2 bg-gray-400 rounded-full typing-dot" style="animation-delay: 0.4s"></span>
             `;
-        } else if (msg.role === "user") {
         } else if (msg.role === "user" || msg.sender === "user") {
             // Nachricht vom User selbst
+        } else if (msg.role === "user") {
             div.className = "bg-blue-600 text-white px-4 py-2.5 rounded-2xl rounded-br-none self-end max-w-[85%] shadow-sm whitespace-pre-wrap leading-relaxed";
-            div.textContent = msg.content;
             div.textContent = msg.text || msg.content || "";
+            div.textContent = msg.content;
         } else {
             // Nachricht von der KI ("assistant") oder vom Admin ("admin")
             div.className = "bg-white border border-gray-200 text-gray-800 px-4 py-2.5 rounded-2xl rounded-bl-none self-start max-w-[85%] shadow-sm whitespace-pre-wrap leading-relaxed";
-            div.textContent = msg.content;
             div.textContent = msg.text || msg.content || "";
+            div.textContent = msg.content;
         }
 
         chatEl.appendChild(div);
@@ -222,12 +215,6 @@ function updateSupportChatUI() {
 // 4. API Calls (Worker)
 async function loadSupportChat() {
     try {
-        const res = await fetch(`${WORKER_BASE}/api/chat/load`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId })
-        });
-
         const res = await fetch(`${WORKER_BASE}/api/chat/load`);
         const data = await res.json();
         chatMessages = data.messages || [];
@@ -242,7 +229,6 @@ async function saveSupportChat() {
         await fetch(`${WORKER_BASE}/api/chat/save`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, messages: chatMessages })
             body: JSON.stringify({ messages: chatMessages })
         });
     } catch (e) {
@@ -259,7 +245,6 @@ async function sendSupportChatMessage() {
 
     // UI sperren & Eingabefeld zurücksetzen
     inputEl.value = "";
-    inputEl.style.height = '';
     inputEl.style.height = ''; // Auto-Resize zurücksetzen
     inputEl.disabled = true;
     sendBtn.disabled = true;
@@ -276,7 +261,6 @@ async function sendSupportChatMessage() {
         setTimeout(async () => {
             chatMessages.push({ 
                 role: "assistant", 
-                content: "Die KI ist derzeit ausgeschaltet. Deine Nachricht wurde gespeichert. Ein Mitarbeiter meldet sich bald." 
                 content: "🤖 Die KI ist derzeit ausgeschaltet. Deine Nachricht wurde sicher gespeichert. Ein Mitarbeiter wird sich das bald ansehen." 
             });
             updateSupportChatUI();
@@ -292,7 +276,7 @@ async function sendSupportChatMessage() {
     }
 
     // --- KI Antwort abfragen ---
-    
+
     // Temporäre "Tippt..." Animation hinzufügen
     const typingId = Date.now();
     chatMessages.push({ role: "assistant", content: "", isTyping: true, id: typingId });
@@ -323,7 +307,6 @@ async function sendSupportChatMessage() {
 
         chatMessages.push({
             role: "assistant",
-            content: "Leider ist ein Verbindungsfehler aufgetreten."
             content: "⚠️ Leider ist ein Verbindungsfehler aufgetreten."
         });
         updateSupportChatUI();
@@ -337,16 +320,10 @@ async function sendSupportChatMessage() {
     inputEl.focus();
 }
 
-// --- DOMContentLoaded: userId erzeugen & Chat starten ---
 // 5. Beim Laden der Seite initialisieren
 document.addEventListener("DOMContentLoaded", () => {
-    if (!localStorage.userId) {
-        localStorage.userId = crypto.randomUUID();
     // Lade das Support-Widget für normale User, aber NICHT auf den Admin-Seiten
     if (!window.location.pathname.toLowerCase().includes('admin')) {
         initFloatingSupportChat();
     }
-    userId = localStorage.userId;
-
-    initFloatingSupportChat();
 });
