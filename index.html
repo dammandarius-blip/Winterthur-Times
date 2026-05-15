@@ -22,6 +22,10 @@
     <!-- Hier wird die gesamte App hineingeladen -->
     <div id="app"></div>
 
+    <!-- ⭐ NEU: Container für automatisch geladene Artikel -->
+    <div id="articles" class="max-w-3xl mx-auto mt-10 px-4"></div>
+    <!-- ⭐ ENDE NEU -->
+
     <script>
       (function () {
         function showOverlay(msg) {
@@ -70,10 +74,14 @@
       })();
     </script>
 
-<!-- Scripte laden -->
+    <!-- Scripte laden -->
     <script src="./assets/js/app.js"></script>
     <script src="./assets/js/admin.js"></script>
     <script src="./assets/js/script.js"></script>
+
+    <!-- ⭐ NEU: Artikel-Lade-Script -->
+    <script src="sites/articles.js"></script>
+    <!-- ⭐ ENDE NEU -->
 
 </body>
 </html>
