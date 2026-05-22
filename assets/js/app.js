@@ -20,20 +20,7 @@ window.saveState = async function() {
 
 // --- DATEN ---
 let initialArticles = [
-    {
-        id: 1, category: "Wirtschaft", title: "KI verändert Arbeitswelt", summary: "Eine Studie zeigt: KI wird bald viele Bürojobs transformieren.", content: "Künstliche Intelligenz wird in den nächsten Jahren viele Büroaufgaben automatisieren. Dadurch entstehen aber auch neue, kreative Berufe. Die Politik ist gefordert, das Bildungssystem entsprechend anzupassen.", author: "Sarah Müller", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), imageUrl: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80", views: ['user_x'], likes: [], comments: [], isEilmeldung: true, sources: ["https://example.com/ki-studie", "https://example.com/zukunft-der-arbeit"]
-    },
-    {
-        id: 2, category: "Politik", title: "Einigung beim Klimagipfel", summary: "Industriestaaten beschließen strengere Klimaziele.", content: "In Genf haben sich die Staaten auf neue CO2-Emissionsziele geeinigt. Bis 2030 sollen die Emissionen deutlich sinken. Ein Ausgleichsfonds half beim Durchbruch.", author: "Johannes Weber", timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), imageUrl: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", views: [], likes: [], comments: [
-            { id: 1001, username: "MaxMuster", text: "Endlich ein Schritt in die richtige Richtung!", timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), likes: [], isDeleted: false, deletedBy: null, reportedBy: [], moderationStatus: 'approved' }
-        ]
-    },
-    {
-        id: 3, category: "Gesellschaft", title: "Neue Lehrpläne an Schulen", summary: "Digitale Medien und Gesundheit werden neue Hauptfächer.", content: "Ab dem nächsten Schuljahr gibt es neue Fächer: Digitale Kompetenz und Mentale Gesundheit werden unterrichtet, um Schüler besser auf die Zukunft vorzubereiten.", author: "Elena Rost", timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), imageUrl: "", views: [], likes: [], comments: []
-    },
-    {
-        id: 4, category: "Sport", title: "Außenseiter gewinnt Finale", summary: "Siegessensation durch Tor in der Nachspielzeit.", content: "Der klare Außenseiter hat das Finale für sich entschieden. Ein Treffer in der letzten Minute sicherte dem Team überraschend den begehrten Meistertitel.", author: "Thomas Klein", timestamp: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(), imageUrl: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", views: [], likes: [], comments: []
-    }
+    
 ];
 
 let authors = [
@@ -41,8 +28,7 @@ let authors = [
 ];
 
 let communityImages = [
-    { id: 101, url: 'https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=800&q=80', uploader: 'MaxMuster', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), likes: [] },
-    { id: 102, url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80', uploader: 'AnnaAdmin', timestamp: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(), likes: [] }
+
 ];
 
 let siteFeedbacks = [
