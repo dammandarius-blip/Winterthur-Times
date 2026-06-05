@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winterthur Times</title>
+    <!-- Tailwind CSS laden -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons laden -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js laden -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Firebase (für gemeinsame Daten: Users/Chats/Artikel) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <link rel="stylesheet" href="./assets/css/site.css?v=admin-ressort-order-editor-autosave">
+</head>
+<body class="bg-[#fcfbf9] text-gray-900 min-h-screen relative">
+    
+    <!-- Hier wird die gesamte App hineingeladen -->
+    <div id="app"></div>
+
+    <script>
+      (function () {
+        function showOverlay(msg) {
+          try {
+            var el = document.getElementById("wt-fatal");
+            if (!el) {
+              el = document.createElement("pre");
+              el.id = "wt-fatal";
+              el.style.position = "fixed";
+              el.style.inset = "0";
+              el.style.zIndex = "999999";
+              el.style.margin = "0";
+              el.style.padding = "16px";
+              el.style.whiteSpace = "pre-wrap";
+              el.style.overflow = "auto";
+              el.style.background = "#fff";
+              el.style.color = "#111";
+              el.style.borderTop = "4px solid #b91c1c";
+              el.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+              document.body.appendChild(el);
+            }
+            el.textContent = msg;
+          } catch (_) {}
+        }
+
+        window.addEventListener("error", function (e) {
+          var err = e && e.error;
+          var msg =
+            "Winterthur Times: JavaScript-Fehler\n\n" +
+            (e && e.message ? e.message : "Unbekannter Fehler") +
+            "\n\n" +
+            (err && err.stack ? err.stack : "") +
+            "\n\nHinweis: Wenn externe Skripte (Tailwind/Lucide/Three.js/Firebase) nicht laden, bleibt die Seite oft leer.";
+          showOverlay(msg);
+        });
+
+        window.addEventListener("unhandledrejection", function (e) {
+          var reason = e && e.reason;
+          var msg =
+            "Winterthur Times: Unhandled Promise Rejection\n\n" +
+            (reason && reason.message ? reason.message : String(reason)) +
+            "\n\n" +
+            (reason && reason.stack ? reason.stack : "");
+          showOverlay(msg);
+        });
+      })();
+    </script>
+
+<!-- Scripte laden -->
+    <script src="./assets/js/app.js?v=admin-ressort-order-editor-autosave"></script>
+    <script src="./assets/js/admin.js?v=admin-ressort-order-editor-autosave"></script>
+    <script src="./assets/js/script.js"></script>
+
+    <script src="assets/js/admin-article-editor.js?v=admin-ressort-order-editor-autosave"></script>
+</body>
+</html>
