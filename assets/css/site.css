@@ -1,0 +1,1561 @@
+body { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; }
+        .font-sans { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
+        
+        /* Neue Animationen für Menü und Suche */
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+
+        /* Better mobile support for fixed UI (e.g. iPhone safe-area) */
+        .support-input-area { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+
+/* Entfernt den weißen Balken unter dem Footer:
+   Der leere #articles-Container steht nach der App und erzeugt sonst Abstand. */
+#articles:empty {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+footer {
+    margin-bottom: 0 !important;
+}
+
+/* Startseiten-Rätsel: Sudoku + Kreuzworträtsel */
+.wt-sudoku-grid {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    max-width: 520px;
+    margin: 0 auto;
+    border: 3px solid #111827;
+    background: #111827;
+    gap: 1px;
+}
+
+.wt-sudoku-cell {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    text-align: center;
+    font-size: clamp(0.95rem, 3.2vw, 1.35rem);
+    font-weight: 900;
+    background: #ffffff;
+    color: #111827;
+    border: 0;
+    outline: none;
+}
+
+.wt-sudoku-cell:focus {
+    background: #dbeafe;
+}
+
+.wt-sudoku-fixed {
+    background: #e5e7eb !important;
+    color: #1e3a8a;
+}
+
+.wt-sudoku-cell:nth-child(3n) {
+    border-right: 2px solid #111827;
+}
+
+.wt-sudoku-cell:nth-child(9n) {
+    border-right: 0;
+}
+
+.wt-sudoku-cell:nth-child(n+19):nth-child(-n+27),
+.wt-sudoku-cell:nth-child(n+46):nth-child(-n+54) {
+    border-bottom: 2px solid #111827;
+}
+
+.wt-crossword-grid {
+    display: grid;
+    gap: 2px;
+    width: min(100%, 520px);
+    margin: 0 auto;
+    background: rgba(148, 163, 184, 0.35);
+    border: 2px solid rgba(148, 163, 184, 0.55);
+    padding: 2px;
+}
+
+.wt-crossword-block {
+    aspect-ratio: 1 / 1;
+    background: #020617;
+    border-radius: 2px;
+}
+
+.wt-crossword-square {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: #ffffff;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.wt-crossword-number {
+    position: absolute;
+    top: 1px;
+    left: 3px;
+    font-size: clamp(0.42rem, 1.6vw, 0.65rem);
+    line-height: 1;
+    font-weight: 900;
+    color: #0f172a;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.wt-crossword-cell {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    font-size: clamp(0.9rem, 3vw, 1.35rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    background: transparent;
+    color: #0f172a;
+    border: 0;
+    outline: none;
+    padding-top: 0.2rem;
+}
+
+.wt-crossword-cell:focus {
+    background: #dbeafe;
+}
+
+#wtPuzzleFullscreen .wt-sudoku-grid {
+    max-width: 660px;
+}
+
+#wtPuzzleFullscreen .wt-sudoku-cell {
+    font-size: clamp(1.1rem, 4vw, 2rem);
+}
+
+#wtPuzzleFullscreen .wt-crossword-grid {
+    width: min(100%, 680px);
+}
+
+#wtPuzzleFullscreen .wt-crossword-cell {
+    font-size: clamp(1rem, 3vw, 2rem);
+}
+
+/* Verbesserte Kreuzworträtsel-Beschriftung mit Richtungspfeilen */
+.wt-crossword-grid {
+    gap: 3px;
+    background: rgba(148, 163, 184, 0.55);
+    border: 3px solid rgba(147, 197, 253, 0.55);
+}
+
+.wt-crossword-square {
+    border: 1px solid rgba(15, 23, 42, 0.18);
+}
+
+.wt-crossword-number {
+    top: 1px;
+    left: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    font-size: clamp(0.34rem, 1.25vw, 0.58rem);
+    background: rgba(219, 234, 254, 0.92);
+    color: #0f172a;
+    padding: 1px 2px;
+    border-radius: 2px;
+    max-width: 80%;
+}
+
+.wt-crossword-number b {
+    font-size: 0.92em;
+    font-weight: 900;
+    color: #1d4ed8;
+}
+
+.wt-crossword-cell {
+    padding-top: 0.42rem;
+}
+
+#wtPuzzleFullscreen .wt-crossword-number {
+    font-size: clamp(0.48rem, 1.4vw, 0.78rem);
+    padding: 1px 3px;
+}
+
+/* Bessere Lesbarkeit der Kreuzworträtsel-Startzahlen mit Pfeilen */
+.wt-crossword-number {
+    min-width: 1.45rem;
+    letter-spacing: -0.02em;
+}
+
+.wt-crossword-number b {
+    margin-left: 1px;
+    font-size: 0.62rem;
+}
+
+
+/* Kreuzworträtsel wie ein klassisches Rätsel: gemischtes Raster, klare Startzahlen und Pfeile */
+.wt-crossword-grid {
+    align-items: center;
+    justify-content: start;
+}
+.wt-crossword-number {
+    pointer-events: none;
+    line-height: 1;
+}
+.wt-crossword-number b {
+    margin-left: 1px;
+}
+
+
+.article-paragraph {
+    white-space: normal;
+}
+
+.article-section-title {
+    font-family: inherit;
+}
+
+.article-inline-image img {
+    display: block;
+}
+
+.article-poll-option {
+    cursor: pointer;
+}
+
+
+
+/* =========================================================
+   Erweiterter Admin Artikel-Editor
+   ========================================================= */
+.wt-advanced-editor {
+    margin: 2rem auto;
+    max-width: 1100px;
+    padding: 0 1rem;
+}
+
+.wt-editor-card {
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 24px;
+    box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+    padding: 1.5rem;
+}
+
+.wt-editor-head,
+.wt-editor-subhead,
+.wt-editor-actions,
+.wt-editor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.wt-editor-head h2,
+.wt-editor-subhead h3 {
+    margin: 0.2rem 0;
+    color: #0f172a;
+}
+
+.wt-editor-head p,
+.wt-editor-subhead p {
+    margin: 0;
+    color: #64748b;
+}
+
+.wt-editor-kicker {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+    color: #2563eb !important;
+}
+
+.wt-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.wt-advanced-editor label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-weight: 700;
+    color: #334155;
+    margin-top: 1rem;
+}
+
+.wt-advanced-editor input,
+.wt-advanced-editor textarea,
+.wt-advanced-editor select {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 0.75rem 0.9rem;
+    font: inherit;
+    background: #fff;
+    color: #0f172a;
+}
+
+.wt-advanced-editor textarea {
+    resize: vertical;
+}
+
+.wt-editor-subcard {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 20px;
+    padding: 1rem;
+    margin-top: 1.25rem;
+}
+
+.wt-repeat-list {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 0.8rem;
+}
+
+.wt-repeat-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr auto;
+    gap: 0.75rem;
+    align-items: end;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 0.8rem;
+}
+
+.wt-poll-option-row {
+    grid-template-columns: 1fr auto;
+}
+
+.wt-editor-primary,
+.wt-editor-secondary,
+.wt-editor-small-btn,
+.wt-editor-danger {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.wt-editor-primary {
+    background: #2563eb;
+    color: white;
+}
+
+.wt-editor-secondary,
+.wt-editor-small-btn {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.wt-editor-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.wt-check {
+    flex-direction: row !important;
+    align-items: center;
+}
+
+.wt-check input {
+    width: auto;
+}
+
+.wt-json-preview {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 16px;
+    padding: 1rem;
+    overflow: auto;
+    max-height: 420px;
+    margin-top: 1rem;
+}
+
+.wt-editor-status {
+    margin-top: 1rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.wt-editor-status.ok {
+    color: #166534;
+}
+
+.wt-editor-status.error {
+    color: #991b1b;
+}
+
+@media (max-width: 820px) {
+    .wt-editor-grid,
+    .wt-repeat-row,
+    .wt-poll-option-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
+/* Erweiterter Editor im Artikel-Menü */
+.wt-advanced-editor-inside-article-tab {
+    margin: 1.5rem 0 2rem 0;
+    max-width: none;
+    padding: 0;
+}
+
+.wt-advanced-editor-inside-article-tab .wt-editor-card {
+    border: 2px solid rgba(37, 99, 235, 0.18);
+}
+
+
+/* Erweiterter Editor: Bearbeitungsmodus */
+.wt-editor-mode-notice {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e3a8a;
+}
+
+
+
+/* Einfacher Artikel-Editor wurde durch den erweiterten Editor ersetzt */
+#wt-advanced-article-editor-host {
+    width: 100%;
+}
+#wt-advanced-article-editor-host .wt-advanced-editor {
+    margin-top: 0;
+}
+
+
+/* Bearbeiten-abbrechen Fix */
+#wtCancelEditArticle { cursor: pointer; }
+
+
+/* =========================================================
+   Mobile Optimierung – nur Handy/Portrait, Desktop bleibt unverändert
+   ========================================================= */
+@media (max-width: 768px) and (orientation: portrait) {
+    html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    body {
+        font-size: 15px;
+        line-height: 1.55;
+    }
+
+    img, video, canvas, iframe {
+        max-width: 100%;
+        height: auto;
+    }
+
+    main, .main, .container, .page-container, .content, .layout,
+    .app-layout, #app, #root {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        box-sizing: border-box;
+    }
+
+    .grid, .main-grid, .content-grid, .home-grid, .article-grid,
+    .sidebar-layout, .dashboard-grid, .admin-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+
+    aside, .sidebar, .right-sidebar, .left-sidebar {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    header, .site-header, .topbar, .navbar {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .site-title, header h1, .brand-title {
+        font-size: clamp(1.6rem, 8vw, 2.35rem) !important;
+        line-height: 1.05 !important;
+        word-break: break-word;
+    }
+
+    nav, .nav, .navigation, .category-nav, .ressort-nav {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        padding-bottom: 6px;
+    }
+
+    nav a, .nav a, .category-nav a, .ressort-nav a,
+    nav button, .nav button {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+    }
+
+    article, .article-card, .card, .news-card, .post-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 18px !important;
+        box-sizing: border-box;
+    }
+
+    .article-card, .news-card, .post-card {
+        padding: 14px !important;
+    }
+
+    .article-card h2, .article-card h3,
+    .news-card h2, .news-card h3,
+    .post-card h2, .post-card h3,
+    article h1, article h2 {
+        font-size: clamp(1.25rem, 5.6vw, 1.75rem) !important;
+        line-height: 1.18 !important;
+    }
+
+    .article-card p, .news-card p, .post-card p, article p {
+        font-size: 1rem !important;
+        line-height: 1.65 !important;
+    }
+
+    .article-meta, .meta, .byline {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        font-size: 0.9rem !important;
+    }
+
+    .article-image, .article-card img, .news-card img, .post-card img, .hero-image {
+        width: 100% !important;
+        max-height: 260px !important;
+        object-fit: cover !important;
+        border-radius: 16px !important;
+    }
+
+    .article-content, .article-body, .article-detail, .article-page {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .article-content h1, .article-detail h1, .article-page h1 {
+        font-size: clamp(1.7rem, 7vw, 2.3rem) !important;
+        line-height: 1.12 !important;
+    }
+
+    .article-section-title, .article-content h2, .article-detail h2, .article-page h2 {
+        font-size: clamp(1.25rem, 5.4vw, 1.7rem) !important;
+        line-height: 1.2 !important;
+        margin-top: 28px !important;
+    }
+
+    .article-paragraph, .article-content p, .article-detail p, .article-page p {
+        font-size: 1.02rem !important;
+        line-height: 1.72 !important;
+    }
+
+    .article-inline-image {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .article-inline-image img {
+        border-radius: 16px !important;
+        max-height: 330px !important;
+        object-fit: cover !important;
+    }
+
+    .widget, .sidebar-card, .most-read, .daily-riddle, .daily-images,
+    .sudoku-card, .crossword-card, .article-poll {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 18px !important;
+        padding: 14px !important;
+        box-sizing: border-box;
+    }
+
+    .sudoku-grid, .crossword-grid {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sudoku-board, .crossword-board {
+        max-width: 100% !important;
+    }
+
+    .sudoku-board input, .crossword-board input,
+    .sudoku-cell, .crossword-cell {
+        min-width: 32px !important;
+        min-height: 32px !important;
+        font-size: 0.95rem !important;
+    }
+
+    .crossword-clues, .riddle-clues, .clues {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    input, textarea, select, button {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    button, .button, .btn {
+        min-height: 42px;
+        touch-action: manipulation;
+    }
+
+    textarea {
+        min-height: 120px;
+    }
+
+    .support-chat, .chat-widget, #supportChat, #chatWindow {
+        width: calc(100vw - 24px) !important;
+        max-width: calc(100vw - 24px) !important;
+        right: 12px !important;
+        left: 12px !important;
+        bottom: 12px !important;
+        max-height: 78vh !important;
+        border-radius: 20px !important;
+    }
+
+    .chat-messages, .support-chat-messages {
+        max-height: 54vh !important;
+    }
+
+    footer, .site-footer {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    footer .grid, .footer-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 18px !important;
+    }
+
+    .wt-advanced-editor {
+        padding: 0 !important;
+        margin: 1rem 0 !important;
+    }
+
+    .wt-editor-card {
+        padding: 1rem !important;
+        border-radius: 18px !important;
+    }
+
+    .wt-editor-head, .wt-editor-subhead, .wt-editor-actions,
+    .wt-editor-row, .wt-editor-mode-notice {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+
+    .wt-editor-grid, .wt-repeat-row, .wt-poll-option-row {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .wt-editor-primary, .wt-editor-secondary, .wt-editor-small-btn, .wt-editor-danger {
+        width: 100% !important;
+        justify-content: center;
+    }
+
+    .wt-json-preview {
+        max-width: 100%;
+        overflow-x: auto;
+        font-size: 0.78rem;
+    }
+
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+@media (max-width: 420px) and (orientation: portrait) {
+    main, .main, .container, .page-container, .content, #app, #root {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    .article-card, .news-card, .post-card, .widget,
+    .sidebar-card, .wt-editor-card {
+        padding: 12px !important;
+        border-radius: 16px !important;
+    }
+
+    .sudoku-board input, .crossword-board input,
+    .sudoku-cell, .crossword-cell {
+        min-width: 28px !important;
+        min-height: 28px !important;
+        font-size: 0.85rem !important;
+    }
+
+    .site-title, header h1, .brand-title {
+        font-size: clamp(1.45rem, 9vw, 2rem) !important;
+    }
+}
+
+
+
+
+/* Admin Ressorts/Autoren Reparatur */
+#newCategoryName,
+#authorName,
+#authorImageUrl,
+#authorBio {
+    box-sizing: border-box;
+}
+
+
+
+/* Startseiten-Solitaire */
+.wt-home-solitaire-row {
+    max-width: 1280px;
+    margin: -140px auto 70px auto;
+    padding: 0 42px;
+    display: grid;
+    grid-template-columns: minmax(420px, 720px) minmax(320px, 390px);
+    gap: 28px;
+}
+
+.wt-home-solitaire-wrap {
+    grid-column: 1;
+    width: 100%;
+}
+
+.wt-home-solitaire-card {
+    background: #f8fafc;
+    border: 1px solid #dbe3ef;
+    border-radius: 0;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+    color: #0f172a;
+}
+
+.wt-home-solitaire-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+}
+
+.wt-home-sol-kicker {
+    margin: 0 0 4px 0;
+    color: #1d4ed8;
+    font-size: 0.78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.wt-home-solitaire-head h2 {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 900;
+    font-family: Georgia, serif;
+}
+
+.wt-home-solitaire-head p {
+    margin: 6px 0 0 0;
+    color: #475569;
+    font-size: 0.95rem;
+    max-width: 430px;
+}
+
+.wt-home-sol-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.wt-home-sol-actions button {
+    border: 0;
+    border-radius: 999px;
+    background: #1e3a8a;
+    color: white;
+    padding: 8px 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.wt-home-sol-actions button:nth-child(2) {
+    background: #334155;
+}
+
+.wt-home-sol-actions button:nth-child(3) {
+    background: #991b1b;
+}
+
+.wt-home-sol-status {
+    display: flex;
+    gap: 18px;
+    color: #64748b;
+    font-size: 0.88rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.wt-home-sol-top {
+    display: grid;
+    grid-template-columns: 58px 58px 1fr;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 18px;
+}
+
+.wt-home-sol-foundations {
+    display: grid;
+    grid-template-columns: repeat(4, 58px);
+    gap: 10px;
+    justify-content: end;
+}
+
+.wt-home-sol-card {
+    width: 58px;
+    height: 78px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.14);
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-weight: 900;
+    font-size: 0.9rem;
+}
+
+.wt-home-sol-card strong {
+    font-size: 1.35rem;
+    align-self: flex-end;
+    line-height: 1;
+}
+
+.wt-home-sol-card.red {
+    color: #dc2626;
+}
+
+.wt-home-sol-card.black {
+    color: #0f172a;
+}
+
+.wt-home-sol-card.back {
+    background: linear-gradient(135deg, #0f172a, #1d4ed8);
+    color: white;
+    justify-content: center;
+    align-items: center;
+    letter-spacing: 0.08em;
+}
+
+.wt-home-sol-card.empty {
+    background: #e2e8f0;
+    color: #64748b;
+    border: 1px dashed #94a3b8;
+    justify-content: center;
+    align-items: center;
+    box-shadow: none;
+}
+
+.wt-home-sol-card.selected {
+    outline: 4px solid #facc15;
+    transform: translateY(-3px);
+}
+
+.wt-home-sol-tableau {
+    display: grid;
+    grid-template-columns: repeat(7, 58px);
+    gap: 10px;
+    overflow-x: auto;
+    min-height: 355px;
+    padding-bottom: 10px;
+}
+
+.wt-home-sol-column {
+    min-width: 58px;
+    min-height: 340px;
+    position: relative;
+}
+
+.wt-home-sol-table-card {
+    position: absolute;
+    left: 0;
+}
+
+.wt-home-sol-hint {
+    margin: 12px 0 0 0;
+    padding: 10px 12px;
+    background: #e0f2fe;
+    color: #075985;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .wt-home-solitaire-row {
+        margin: 30px auto 50px auto;
+        grid-template-columns: 1fr;
+        padding: 0 18px;
+    }
+}
+
+@media (max-width: 760px) {
+    .wt-home-solitaire-card {
+        padding: 16px;
+    }
+
+    .wt-home-solitaire-head {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .wt-home-sol-actions {
+        justify-content: stretch;
+    }
+
+    .wt-home-sol-actions button {
+        flex: 1 1 100%;
+    }
+
+    .wt-home-sol-top {
+        grid-template-columns: 46px 46px 1fr;
+    }
+
+    .wt-home-sol-foundations {
+        grid-template-columns: repeat(4, 46px);
+        gap: 6px;
+    }
+
+    .wt-home-sol-tableau {
+        grid-template-columns: repeat(7, 46px);
+        gap: 6px;
+    }
+
+    .wt-home-sol-column {
+        min-width: 46px;
+    }
+
+    .wt-home-sol-card {
+        width: 46px;
+        height: 64px;
+        font-size: 0.75rem;
+    }
+
+    .wt-home-sol-card strong {
+        font-size: 1.05rem;
+    }
+}
+
+
+
+/* Bild2URL Button + Spiele Menü */
+.wt-editor-head-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.wt-editor-link-btn {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+.wt-games-menu-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0.45rem 0.75rem;
+    margin-left: 0.35rem;
+    border: 0;
+    border-radius: 999px;
+    background: #e0ecff;
+    color: #1e3a8a;
+    font-weight: 900;
+    cursor: pointer;
+}
+.wt-games-menu-link:hover {
+    background: #bfdbfe;
+}
+@media (max-width: 760px) {
+    .wt-editor-head-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+    .wt-games-menu-link {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 0.35rem;
+    }
+}
+
+
+
+/* Spiele-Seite */
+.wt-game-select-card {
+    display: block;
+    text-align: left;
+    background: #ffffff;
+    border: 1px solid #dbe3ef;
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+    cursor: pointer;
+}
+.wt-game-select-card.active,
+.wt-game-select-card:hover {
+    background: #eff6ff;
+    border-color: #1d4ed8;
+}
+.wt-game-select-card strong {
+    display: block;
+    color: #0f172a;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+.wt-game-select-card span {
+    display: block;
+    color: #64748b;
+    font-size: 0.92rem;
+}
+.wt-games-stage {
+    background: #f8fafc;
+    border: 1px solid #dbe3ef;
+    border-radius: 22px;
+    padding: 24px;
+}
+.wt-solitaire-game {
+    min-height: 540px;
+}
+.wt-sol-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+}
+.wt-sol-head h2 {
+    font-family: Georgia, serif;
+    font-size: 2rem;
+    margin: 0;
+}
+.wt-sol-head p {
+    color: #64748b;
+    margin: 6px 0 0;
+}
+.wt-sol-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.wt-sol-actions button {
+    border: 0;
+    border-radius: 999px;
+    background: #1e3a8a;
+    color: #fff;
+    padding: 9px 13px;
+    font-weight: 900;
+    cursor: pointer;
+}
+.wt-sol-actions button:nth-child(2) { background: #334155; }
+.wt-sol-actions button:nth-child(3) { background: #991b1b; }
+.wt-sol-status {
+    font-weight: 800;
+    color: #64748b;
+    margin-bottom: 14px;
+}
+.wt-sol-top {
+    display: grid;
+    grid-template-columns: 58px 58px 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+.wt-sol-foundations {
+    display: grid;
+    grid-template-columns: repeat(4, 58px);
+    gap: 10px;
+    justify-content: end;
+}
+.wt-sol-card {
+    width: 58px;
+    height: 78px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.14);
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-weight: 900;
+}
+.wt-sol-card strong {
+    font-size: 1.35rem;
+    align-self: flex-end;
+    line-height: 1;
+}
+.wt-sol-card.red { color: #dc2626; }
+.wt-sol-card.black { color: #0f172a; }
+.wt-sol-card.back {
+    background: linear-gradient(135deg, #0f172a, #1d4ed8);
+    color: white;
+    justify-content: center;
+    align-items: center;
+}
+.wt-sol-card.empty {
+    background: #e2e8f0;
+    color: #64748b;
+    border: 1px dashed #94a3b8;
+    justify-content: center;
+    align-items: center;
+    box-shadow: none;
+}
+.wt-sol-card.selected {
+    outline: 4px solid #facc15;
+    transform: translateY(-3px);
+}
+.wt-sol-tableau {
+    display: grid;
+    grid-template-columns: repeat(7, 58px);
+    gap: 10px;
+    min-height: 360px;
+    overflow-x: auto;
+}
+.wt-sol-column {
+    min-width: 58px;
+    min-height: 350px;
+    position: relative;
+}
+.wt-sol-pos {
+    position: absolute;
+    left: 0;
+}
+.wt-sol-hint {
+    margin-top: 14px;
+    padding: 12px;
+    background: #e0f2fe;
+    color: #075985;
+    font-weight: 800;
+    border-radius: 14px;
+}
+@media (max-width: 700px) {
+    .wt-games-stage { padding: 14px; }
+    .wt-sol-head { display: grid; }
+    .wt-sol-top { grid-template-columns: 46px 46px 1fr; }
+    .wt-sol-foundations { grid-template-columns: repeat(4, 46px); gap: 6px; }
+    .wt-sol-tableau { grid-template-columns: repeat(7, 46px); gap: 6px; }
+    .wt-sol-column { min-width: 46px; }
+    .wt-sol-card { width: 46px; height: 64px; font-size: 0.75rem; }
+    .wt-sol-card strong { font-size: 1.05rem; }
+}
+
+
+
+/* Startseiten-Solitaire unten links */
+.wt-home-solitaire-mount {
+    max-width: 1280px;
+    margin: -120px auto 72px auto;
+    padding: 0 42px;
+    display: grid;
+    grid-template-columns: minmax(440px, 720px) minmax(320px, 390px);
+    gap: 28px;
+    align-items: start;
+}
+
+.wt-home-solitaire-mount .wt-solitaire-game {
+    grid-column: 1;
+    background: #f8fafc;
+    border: 1px solid #dbe3ef;
+    border-radius: 0;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+    color: #0f172a;
+    min-height: 520px;
+}
+
+.wt-home-solitaire-mount .wt-sol-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+}
+
+.wt-home-solitaire-mount .wt-sol-head h2 {
+    font-family: Georgia, serif;
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+.wt-home-solitaire-mount .wt-sol-head p {
+    color: #64748b;
+    margin: 6px 0 0;
+    max-width: 420px;
+}
+
+.wt-home-solitaire-mount .wt-sol-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.wt-home-solitaire-mount .wt-sol-actions button {
+    border: 0;
+    border-radius: 999px;
+    background: #1e3a8a;
+    color: #fff;
+    padding: 9px 13px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.wt-home-solitaire-mount .wt-sol-actions button:nth-child(2) {
+    background: #334155;
+}
+
+.wt-home-solitaire-mount .wt-sol-actions button:nth-child(3) {
+    background: #991b1b;
+}
+
+.wt-home-solitaire-mount .wt-sol-status {
+    font-weight: 800;
+    color: #64748b;
+    margin-bottom: 14px;
+}
+
+.wt-home-solitaire-mount .wt-sol-top {
+    display: grid;
+    grid-template-columns: 58px 58px 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.wt-home-solitaire-mount .wt-sol-foundations {
+    display: grid;
+    grid-template-columns: repeat(4, 58px);
+    gap: 10px;
+    justify-content: end;
+}
+
+.wt-home-solitaire-mount .wt-sol-tableau {
+    display: grid;
+    grid-template-columns: repeat(7, 58px);
+    gap: 10px;
+    min-height: 350px;
+    overflow-x: auto;
+}
+
+.wt-home-solitaire-mount .wt-sol-column {
+    min-width: 58px;
+    min-height: 340px;
+    position: relative;
+}
+
+.wt-home-solitaire-mount .wt-sol-hint {
+    margin-top: 14px;
+    padding: 12px;
+    background: #e0f2fe;
+    color: #075985;
+    font-weight: 800;
+    border-radius: 14px;
+}
+
+/* Auf mittelgrossen Bildschirmen normal unter die Artikel setzen */
+@media (max-width: 1100px) {
+    .wt-home-solitaire-mount {
+        margin: 32px auto 56px auto;
+        padding: 0 18px;
+        display: block;
+    }
+}
+
+/* Handy-Optimierung */
+@media (max-width: 700px) {
+    .wt-home-solitaire-mount {
+        margin: 24px auto 42px auto;
+        padding: 0 12px;
+    }
+
+    .wt-home-solitaire-mount .wt-solitaire-game {
+        padding: 16px;
+        border-radius: 18px;
+        min-height: 500px;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-head {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        justify-content: stretch;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-top {
+        grid-template-columns: 46px 46px 1fr;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-foundations {
+        grid-template-columns: repeat(4, 46px);
+        gap: 6px;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-tableau {
+        grid-template-columns: repeat(7, 46px);
+        gap: 6px;
+        min-height: 320px;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-column {
+        min-width: 46px;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-card {
+        width: 46px;
+        height: 64px;
+        font-size: 0.75rem;
+    }
+
+    .wt-home-solitaire-mount .wt-sol-card strong {
+        font-size: 1.05rem;
+    }
+}
+
+
+
+/* Handy-Menü Scroll/Ressort Fix */
+.wt-mobile-menu-panel-safe,
+.wt-mobile-menu-scroll {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+.wt-mobile-menu-scroll {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 72px);
+    padding-bottom: 44px;
+}
+
+.mobile-menu-item {
+    touch-action: manipulation;
+    user-select: none;
+}
+
+.wt-mobile-menu-panel {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+
+
+/* Solitaire Klick-/Touch-Fix */
+.wt-solitaire-game,
+.wt-home-solitaire-mount,
+.wt-games-stage {
+    pointer-events: auto;
+}
+
+.wt-sol-card,
+.wt-sol-column,
+.wt-sol-pos,
+.wt-sol-foundations,
+.wt-sol-tableau {
+    pointer-events: auto;
+}
+
+.wt-sol-card {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.wt-sol-card.selected {
+    outline: 4px solid #facc15 !important;
+    transform: translateY(-3px);
+    z-index: 20;
+}
+
+
+
+/* Solitaire Auswahl-Fix */
+.wt-sol-card.selected {
+    outline: 4px solid #facc15 !important;
+    box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.35), 0 8px 16px rgba(15, 23, 42, 0.18) !important;
+}
+
+
+
+/* Solitaire Umwahl-Fix sichtbar */
+.wt-sol-card.selected {
+    outline: 4px solid #facc15 !important;
+    box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.35), 0 8px 18px rgba(15, 23, 42, 0.22) !important;
+}
+
+
+
+/* Solitaire final stabil */
+.wt-solitaire-game {
+    position: relative;
+    pointer-events: auto;
+}
+
+.wt-sol-card,
+.wt-sol-column,
+.wt-sol-pos,
+.wt-sol-foundations,
+.wt-sol-tableau {
+    pointer-events: auto;
+}
+
+.wt-sol-card {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.wt-sol-card.selected {
+    outline: 4px solid #facc15 !important;
+    box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.35), 0 8px 18px rgba(15, 23, 42, 0.22) !important;
+    transform: translateY(-3px);
+    z-index: 20;
+}
+
+
+
+/* Ressort Speichern Fix */
+.wt-ressort-save-status {
+    margin-top: .75rem;
+    font-weight: 800;
+    color: #1e3a8a;
+}
+
+
+
+/* Benutzerrolle speichern */
+.wt-user-role-save-btn {
+    margin-left: 0.55rem;
+    border: 0;
+    border-radius: 999px;
+    background: #1e3a8a;
+    color: #fff;
+    padding: 0.45rem 0.75rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.wt-user-role-save-status {
+    margin-left: 0.55rem;
+    color: #166534;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+
+.wt-user-role-save-status.error {
+    color: #b91c1c;
+}
+
+.wt-system-notice {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.wt-system-notice strong {
+    white-space: nowrap;
+}
+
+.wt-system-notice.warning {
+    background: #fffbeb;
+    color: #78350f;
+}
+
+.wt-system-notice.error {
+    background: #fef2f2;
+    color: #7f1d1d;
+}
+
+@media (max-width: 640px) {
+    .wt-system-notice {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+
+/* Benutzerrolle Speichern funktional */
+.wt-user-role-save-btn {
+    margin-left: 0.55rem;
+    border: 0;
+    border-radius: 999px;
+    background: #1e3a8a;
+    color: #fff;
+    padding: 0.42rem 0.72rem;
+    font-weight: 900;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.wt-user-role-save-btn:hover {
+    background: #1d4ed8;
+}
+
+.wt-user-role-save-status {
+    margin-left: 0.5rem;
+    color: #166534;
+    font-weight: 800;
+    font-size: 0.78rem;
+}
+
+.wt-user-role-save-status.error {
+    color: #b91c1c;
+}
