@@ -1,0 +1,9 @@
+Die Winterthur Times ist eine unabhängige Nachrichtenplattform für Winterthur
+und die Region. Hier findest du aktuelle Berichte, Hintergründe und Meinungen
+aus Politik, Wirtschaft, Gesellschaft, Kultur, Sport und Wissenschaft. Unsere
+Redaktion besteht aus engagierten Schülerinnen und Schülern, die journalistische
+Erfahrung sammeln und ihre Leidenschaft für die Medienwelt ausleben möchten.
+
+Diese Datei dient als leicht aktualisierbare Quelle für die "Über uns"‑Seite.
+Du kannst sie jederzeit in GitHub bearbeiten, um die Informationen anzupassen,
+ohne den Code anrühren zu müssen.
