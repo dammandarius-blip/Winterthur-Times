@@ -4457,7 +4457,7 @@ window.requestPasswordResetFromLogin = async function() {
         await firebaseAuth.sendPasswordResetEmail(mappedEmail, {
             url: `${window.location.origin}${window.location.pathname}`
         });
-        showModal("E-Mail gesendet", `Wir haben einen Link zum Zuruecksetzen an ${wtEscapeHtml(mappedEmail)} gesendet.`);
+        showModal("E-Mail gesendet", `Wir haben einen Link zum Zuruecksetzen an ${wtEscapeHtml(mappedEmail)} gesendet. Schaut auch im spam ordner nach!`);
     } catch (err) {
         console.error("Passwort-Reset fehlgeschlagen:", err);
         showWarning("Reset-Link konnte nicht gesendet werden. Pruefe die E-Mail-Adresse.");
