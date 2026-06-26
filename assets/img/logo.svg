@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Simple circular logo for Winterthur Times -->
-  <circle cx="32" cy="32" r="30" fill="#14213D" />
-  <!-- Monogram letters WT in the centre -->
-  <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central"
-        font-family="Georgia, serif" font-size="28" fill="#FCA311">
-    WT
-  </text>
-</svg>
