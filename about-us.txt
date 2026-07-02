@@ -1,0 +1,3 @@
+Winterthur Times ist ein unabhaengiges regionales Schul- und Medienprojekt aus Winterthur.
+
+Wir berichten lokal, klar und aktuell: ueber Themen, die unsere Stadt, unsere Schule und unsere Community bewegen. Dieser Text liegt bewusst als TXT-Datei im GitHub-Repository, damit das Team ihn jederzeit ohne Code-Aenderung anpassen kann.
